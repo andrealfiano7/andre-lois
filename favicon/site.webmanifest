@@ -1,13 +1,16 @@
 {
+  "id": "/",
   "name": "Andre & Lois",
   "short_name": "Andre & Lois",
   "description": "Andre & Lois Wedding Operations & Checklist Dashboard",
+  "lang": "id",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#FAF7F2",
   "theme_color": "#FAF7F2",
+  "categories": ["lifestyle", "productivity"],
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
@@ -35,3 +38,4 @@
     }
   ]
 }
+
