@@ -20,7 +20,7 @@ import {
 import { motion } from 'framer-motion';
 import { CATEGORIES, PICS } from '../data/initialTasks';
 
-export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSelectPic, selectedPic, onSwitchToChecklist }) {
+export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSelectPic, selectedPic, onSwitchToChecklist, onSelectStatus }) {
   const { 
     total, 
     completed, 
@@ -147,7 +147,7 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
           </div>
         </div>
 
-        {/* 3. Multi-Segment Progress Bar (Visual Tricolor Breakdown) */}
+        {/* 3. Multi-Segment Progress Bar (Visual Tricolor Breakdown with Clickable Filters) */}
         <div className="mt-4 relative z-10">
           <div className="h-3 sm:h-3.5 w-full bg-stone-200/60 rounded-full p-0.5 flex gap-1 overflow-hidden shadow-inner">
             {/* Completed (Emerald) */}
@@ -156,8 +156,9 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
                 initial={{ width: 0 }}
                 animate={{ width: `${(completed / total) * 100}%` }}
                 transition={{ duration: 0.9, ease: 'easeOut' }}
-                className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full shadow-xs"
-                title={`Selesai: ${completed} (${Math.round((completed / total) * 100)}%)`}
+                onClick={() => onSelectStatus ? onSelectStatus('Done') : onSwitchToChecklist()}
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full shadow-xs cursor-pointer hover:opacity-90 transition"
+                title={`Selesai: ${completed} (${Math.round((completed / total) * 100)}%) - Klik untuk filter`}
               />
             )}
             {/* In Progress (Amber) */}
@@ -166,8 +167,9 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
                 initial={{ width: 0 }}
                 animate={{ width: `${(inProgress / total) * 100}%` }}
                 transition={{ duration: 0.9, delay: 0.15, ease: 'easeOut' }}
-                className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full shadow-xs"
-                title={`Sedang Dikerjakan: ${inProgress} (${Math.round((inProgress / total) * 100)}%)`}
+                onClick={() => onSelectStatus ? onSelectStatus('Working on It') : onSwitchToChecklist()}
+                className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full shadow-xs cursor-pointer hover:opacity-90 transition"
+                title={`Sedang Dikerjakan: ${inProgress} (${Math.round((inProgress / total) * 100)}%) - Klik untuk filter`}
               />
             )}
             {/* Not Started (Stone) */}
@@ -176,20 +178,24 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
                 initial={{ width: 0 }}
                 animate={{ width: `${(notStarted / total) * 100}%` }}
                 transition={{ duration: 0.9, delay: 0.3, ease: 'easeOut' }}
-                className="h-full bg-stone-300/80 rounded-full"
-                title={`Menunggu: ${notStarted} (${Math.round((notStarted / total) * 100)}%)`}
+                onClick={() => onSelectStatus ? onSelectStatus('Not yet Started') : onSwitchToChecklist()}
+                className="h-full bg-stone-300/80 rounded-full cursor-pointer hover:bg-stone-400/80 transition"
+                title={`Menunggu: ${notStarted} (${Math.round((notStarted / total) * 100)}%) - Klik untuk filter`}
               />
             )}
           </div>
         </div>
 
-        {/* 4. Integrated 3 Status Badges / Cards */}
+        {/* 4. Integrated 3 Status Badges / Cards (Clickable Quick Filters) */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-4 pt-4 border-t border-stone-200/70 relative z-10">
           {/* Selesai */}
-          <button
+          <motion.button
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.95 }}
             type="button"
-            onClick={onSwitchToChecklist}
+            onClick={() => onSelectStatus ? onSelectStatus('Done') : onSwitchToChecklist()}
             className="p-2.5 sm:p-3 rounded-2xl bg-white/90 hover:bg-emerald-50/80 border border-stone-200/80 hover:border-emerald-300/80 flex flex-col justify-between transition group text-left cursor-pointer shadow-2xs"
+            title="Tampilkan tugas yang sudah Selesai"
           >
             <div className="flex items-center justify-between w-full">
               <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-800">
@@ -207,13 +213,16 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
                 ({total > 0 ? Math.round((completed / total) * 100) : 0}%)
               </span>
             </div>
-          </button>
+          </motion.button>
 
           {/* Sedang Dikerjakan */}
-          <button
+          <motion.button
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.95 }}
             type="button"
-            onClick={onSwitchToChecklist}
+            onClick={() => onSelectStatus ? onSelectStatus('Working on It') : onSwitchToChecklist()}
             className="p-2.5 sm:p-3 rounded-2xl bg-white/90 hover:bg-amber-50/80 border border-stone-200/80 hover:border-amber-300/80 flex flex-col justify-between transition group text-left cursor-pointer shadow-2xs"
+            title="Tampilkan tugas yang Sedang Dikerjakan"
           >
             <div className="flex items-center justify-between w-full">
               <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-800">
@@ -231,13 +240,16 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
                 tugas
               </span>
             </div>
-          </button>
+          </motion.button>
 
           {/* Menunggu / Belum */}
-          <button
+          <motion.button
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.95 }}
             type="button"
-            onClick={onSwitchToChecklist}
+            onClick={() => onSelectStatus ? onSelectStatus('Not yet Started') : onSwitchToChecklist()}
             className="p-2.5 sm:p-3 rounded-2xl bg-white/90 hover:bg-stone-100/90 border border-stone-200/80 hover:border-stone-400/80 flex flex-col justify-between transition group text-left cursor-pointer shadow-2xs"
+            title="Tampilkan tugas yang Belum Dimulai"
           >
             <div className="flex items-center justify-between w-full">
               <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-stone-600">
@@ -257,7 +269,7 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
                 {overdueCount > 0 ? `${overdueCount} telat` : 'tugas'}
               </span>
             </div>
-          </button>
+          </motion.button>
         </div>
       </motion.div>
 

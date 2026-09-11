@@ -275,6 +275,14 @@ export default function App() {
     setActiveModule('checklist');
   };
 
+  const handleSelectStatusFromDashboard = (statusKey) => {
+    setSelectedCategory(null);
+    setSelectedPic(null);
+    setSearchQuery('');
+    setStatusFilter(statusKey);
+    setActiveModule('checklist');
+  };
+
   // Available modules / sheets configuration
   const MODULES = useMemo(() => [
     {
@@ -448,7 +456,11 @@ export default function App() {
               selectedCategory={selectedCategory}
               onSelectPic={handleSelectPicFromDashboard}
               selectedPic={selectedPic}
-              onSwitchToChecklist={() => setActiveModule('checklist')}
+              onSelectStatus={handleSelectStatusFromDashboard}
+              onSwitchToChecklist={() => {
+                setStatusFilter('All');
+                setActiveModule('checklist');
+              }}
             />
 
             {/* Quick Navigation Cards to other sheets with bright gradient accents */}
