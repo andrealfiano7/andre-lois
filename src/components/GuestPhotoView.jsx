@@ -17,6 +17,7 @@ import {
   Church, 
   Layers
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function GuestPhotoView({ items, onChange }) {
   const [selectedSide, setSelectedSide] = useState('Semua');
@@ -251,15 +252,23 @@ export function GuestPhotoView({ items, onChange }) {
           ].map(side => (
             <button
               key={side.id}
+              type="button"
               onClick={() => setSelectedSide(side.id)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 ${
+              className={`relative px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 cursor-pointer ${
                 selectedSide === side.id 
-                  ? 'bg-gradient-to-r from-amber-600 to-rose-600 text-white shadow-xs font-bold' 
+                  ? 'text-white font-bold' 
                   : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
               }`}
             >
-              <span>{side.label}</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              {selectedSide === side.id && (
+                <motion.div
+                  layoutId="photoSidePill"
+                  className="absolute inset-0 bg-gradient-to-r from-amber-600 to-rose-600 rounded-xl shadow-xs"
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                />
+              )}
+              <span className="relative z-10">{side.label}</span>
+              <span className={`relative z-10 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
                 selectedSide === side.id ? 'bg-white/20 text-white' : 'bg-stone-200/80 text-stone-700'
               }`}>
                 {side.count}
@@ -468,118 +477,135 @@ export function GuestPhotoView({ items, onChange }) {
         )}
       </div>
 
-      {/* Simple Modal Add/Edit Photo Item */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/40 backdrop-blur-xs">
-          <div 
-            className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-stone-200 overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-rose-50">
-              <h3 className="text-sm font-bold text-stone-900 truncate pr-2">
-                {editingItem 
-                  ? 'Edit Sesi Foto' 
-                  : formData.category 
-                  ? `Tambah Sesi Foto — ${formData.category}` 
-                  : 'Tambah Sesi Foto Baru'}
-              </h3>
-              <button 
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="text-stone-400 hover:text-stone-700 cursor-pointer p-1"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSave} className="p-5 space-y-3.5 text-xs">
-              <div>
-                <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
-                  Pihak Mempelai
-                </label>
-                <select
-                  value={formData.side}
-                  onChange={(e) => setFormData({ ...formData, side: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs bg-white outline-none focus:border-amber-600"
-                >
-                  <option value="Andre (Mempelai Pria)">Andre (Mempelai Pria)</option>
-                  <option value="Lois Erin (Mempelai Wanita)">Lois Erin (Mempelai Wanita)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
-                  Kategori / Hubungan Keluarga
-                </label>
-                <input
-                  type="text"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  placeholder="Contoh: Keluarga Inti, Keluarga Besar (Pihak Bapak)..."
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:border-amber-600"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
-                  Nama Sesi / Nama Rombongan <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Contoh: Kel. Om / Tante Ke-2 (Kel. Bpk Nainggolan)"
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:border-amber-600"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
-                  Keterangan Anggota Rombongan
-                </label>
-                <input
-                  type="text"
-                  value={formData.detail}
-                  onChange={(e) => setFormData({ ...formData, detail: e.target.value })}
-                  placeholder="Contoh: Papa, Mama, 2 Anak..."
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
-                  Catatan Tambahan (Opsional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.note}
-                  onChange={(e) => setFormData({ ...formData, note: e.target.value })}
-                  placeholder="Contoh: to be confirm / tidak hadir / rombongan 8 orang..."
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-stone-100 flex justify-end gap-2">
-                <button
+      {/* Modal Add/Edit Photo Item with Spring Animation */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-stone-950/40 backdrop-blur-xs"
+              onClick={() => setIsModalOpen(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.94, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 12 }}
+              transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+              className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-rose-50">
+                <h3 className="text-sm font-bold text-stone-900 truncate pr-2">
+                  {editingItem 
+                    ? 'Edit Sesi Foto' 
+                    : formData.category 
+                    ? `Tambah Sesi Foto — ${formData.category}` 
+                    : 'Tambah Sesi Foto Baru'}
+                </h3>
+                <button 
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-3.5 py-1.5 rounded-lg text-stone-600 hover:bg-stone-100"
+                  className="p-1 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
                 >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-rose-600 text-white font-semibold shadow-xs"
-                >
-                  Simpan Sesi Foto
+                  ✕
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handleSave} className="p-5 space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
+                    Pihak Mempelai
+                  </label>
+                  <select
+                    value={formData.side}
+                    onChange={(e) => setFormData({ ...formData, side: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs bg-white outline-none focus:border-amber-600"
+                  >
+                    <option value="Andre (Mempelai Pria)">Andre (Mempelai Pria)</option>
+                    <option value="Lois Erin (Mempelai Wanita)">Lois Erin (Mempelai Wanita)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
+                    Kategori / Hubungan Keluarga
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    placeholder="Contoh: Keluarga Inti, Keluarga Besar (Pihak Bapak)..."
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:border-amber-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
+                    Nama Sesi / Nama Rombongan <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Contoh: Kel. Om / Tante Ke-2 (Kel. Bpk Nainggolan)"
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:border-amber-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
+                    Keterangan Anggota Rombongan
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.detail}
+                    onChange={(e) => setFormData({ ...formData, detail: e.target.value })}
+                    placeholder="Contoh: Papa, Mama, 2 Anak..."
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
+                    Catatan Tambahan (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.note}
+                    onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                    placeholder="Contoh: to be confirm / tidak hadir / rombongan 8 orang..."
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none"
+                  />
+                </div>
+
+                <div className="pt-3 border-t border-stone-100 flex justify-end gap-2">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.96 }}
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-3.5 py-1.5 rounded-xl text-stone-600 hover:bg-stone-100 transition cursor-pointer"
+                  >
+                    Batal
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.96 }}
+                    type="submit"
+                    className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 text-white font-semibold shadow-xs transition cursor-pointer"
+                  >
+                    Simpan Sesi Foto
+                  </motion.button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

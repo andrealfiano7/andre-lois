@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, Calendar, Store, User, FileText, Phone, MessageSquare, Sparkles, Layers } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { CATEGORIES, PICS, STATUS_TYPES } from '../data/initialTasks';
 
 export function TaskModal({ isOpen, onClose, onSave, editingTask }) {
@@ -43,8 +44,6 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }) {
     setErrors({});
   }, [editingTask, isOpen]);
 
-  if (!isOpen) return null;
-
   const handleChange = (field, value) => {
     setFormData(prev => {
       const next = { ...prev, [field]: value };
@@ -78,11 +77,24 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-950/40 backdrop-blur-xs animate-in fade-in">
-      <div 
-        className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-xl border border-stone-200 overflow-hidden max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-stone-950/40 backdrop-blur-xs"
+            onClick={onClose}
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.94, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+            className="relative w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200 overflow-hidden max-h-[90vh] flex flex-col z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-rose-50">
           <div>
@@ -240,23 +252,29 @@ export function TaskModal({ isOpen, onClose, onSave, editingTask }) {
 
           {/* Modal Footer */}
           <div className="pt-3 border-t border-stone-100 flex items-center justify-end gap-2">
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.96 }}
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 transition font-semibold"
+              className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 transition font-semibold cursor-pointer"
             >
               Batal
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.96 }}
               type="submit"
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 text-white font-bold hover:from-amber-700 hover:to-rose-700 transition flex items-center gap-1.5 shadow-xs"
+              className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 text-white font-bold hover:from-amber-700 hover:to-rose-700 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <Check size={14} />
               Simpan Tugas
-            </button>
+            </motion.button>
           </div>
         </form>
-      </div>
+      </motion.div>
     </div>
+  )}
+</AnimatePresence>
   );
 }

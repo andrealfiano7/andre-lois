@@ -17,6 +17,7 @@ import {
   ClipboardCheck,
   UsersRound
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { CATEGORIES, PICS } from '../data/initialTasks';
 
 export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSelectPic, selectedPic, onSwitchToChecklist }) {
@@ -58,7 +59,11 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         
         {/* Overall Progress Card */}
-        <div className="col-span-2 lg:col-span-1 nude-card p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl flex items-center justify-between bg-gradient-to-br from-white via-nude-50 to-amber-50/40 border-amber-200/70 shadow-nude-soft">
+        <motion.div 
+          whileHover={{ y: -4, scale: 1.01 }}
+          transition={{ duration: 0.2 }}
+          className="col-span-2 lg:col-span-1 nude-card p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl flex items-center justify-between bg-gradient-to-br from-white via-nude-50 to-amber-50/40 border-amber-200/70 shadow-nude-soft cursor-default"
+        >
           <div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
@@ -109,12 +114,16 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
               <TrendingUp size={16} className="text-amber-600 sm:w-5 sm:h-5" />
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* 3 Compact Metric Cards (Single Row on Mobile) */}
         <div className="col-span-2 lg:col-span-3 grid grid-cols-3 gap-2 sm:gap-4">
           {/* Completed Tasks */}
-          <div className="nude-card p-3 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col justify-between bg-gradient-to-br from-white via-nude-50 to-emerald-50/40 border-emerald-200/70 shadow-nude-soft">
+          <motion.div 
+            whileHover={{ y: -4, scale: 1.01 }}
+            transition={{ duration: 0.2 }}
+            className="nude-card p-3 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col justify-between bg-gradient-to-br from-white via-nude-50 to-emerald-50/40 border-emerald-200/70 shadow-nude-soft cursor-default"
+          >
             <div className="flex items-center justify-between">
               <span className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-stone-500">Selesai</span>
               <span className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-xs">
@@ -129,10 +138,14 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
                 {total > 0 ? Math.round((completed / total) * 100) : 0}% tuntas
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* In Progress Tasks */}
-          <div className="nude-card p-3 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col justify-between bg-gradient-to-br from-white via-nude-50 to-amber-50/40 border-amber-200/70 shadow-nude-soft">
+          <motion.div 
+            whileHover={{ y: -4, scale: 1.01 }}
+            transition={{ duration: 0.2 }}
+            className="nude-card p-3 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col justify-between bg-gradient-to-br from-white via-nude-50 to-amber-50/40 border-amber-200/70 shadow-nude-soft cursor-default"
+          >
             <div className="flex items-center justify-between">
               <span className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-stone-500">Proses</span>
               <span className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-xs">
@@ -147,10 +160,14 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
                 Dikerjakan
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* Not Started & Overdue */}
-          <div className="nude-card p-3 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col justify-between bg-gradient-to-br from-white via-nude-50 to-stone-50/60 border-stone-200/70 shadow-nude-soft">
+          <motion.div 
+            whileHover={{ y: -4, scale: 1.01 }}
+            transition={{ duration: 0.2 }}
+            className="nude-card p-3 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col justify-between bg-gradient-to-br from-white via-nude-50 to-stone-50/60 border-stone-200/70 shadow-nude-soft cursor-default"
+          >
             <div className="flex items-center justify-between">
               <span className="text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-stone-500">Belum</span>
               <span className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center shadow-xs text-white ${
@@ -167,7 +184,7 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
                 {overdueCount > 0 ? `${overdueCount} telat` : 'Menunggu'}
               </p>
             </div>
-          </div>
+          </motion.div>
         </div>
 
       </div>
@@ -204,10 +221,12 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
               const isSelected = selectedCategory === cat.id;
 
               return (
-                <button
+                <motion.button
                   key={cat.id}
+                  whileHover={{ y: -2, scale: 1.008 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => onSelectCategory(isSelected ? null : cat.id)}
-                  className={`p-4 rounded-2xl text-left border transition-all relative overflow-hidden ${
+                  className={`p-4 rounded-2xl text-left border transition-all relative overflow-hidden cursor-pointer ${
                     isSelected 
                       ? 'border-stone-900 bg-gradient-to-br from-stone-900 via-stone-850 to-stone-950 text-white shadow-md' 
                       : 'border-stone-200/80 bg-gradient-to-br from-white to-nude-50/60 hover:border-amber-400/80 text-stone-800'
@@ -236,9 +255,11 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
 
                   {/* Gradient Progress bar */}
                   <div className="w-full h-2 bg-stone-100 rounded-full mt-3.5 overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-700 bg-gradient-to-r ${cat.gradient}`}
-                      style={{ width: `${stat.percentage}%` }}
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${stat.percentage}%` }}
+                      transition={{ duration: 0.8, ease: 'easeOut' }}
+                      className={`h-full rounded-full bg-gradient-to-r ${cat.gradient}`}
                     />
                   </div>
 
@@ -250,7 +271,7 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
                       <span className="font-semibold text-amber-500">{stat.inProgress} on process</span>
                     )}
                   </div>
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -286,10 +307,12 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
                 const isSelected = selectedPic === pic.id;
 
                 return (
-                  <button
+                  <motion.button
                     key={pic.id}
+                    whileHover={{ x: 3 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => onSelectPic(isSelected ? null : pic.id)}
-                    className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-left ${
+                    className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer ${
                       isSelected 
                         ? 'border-stone-900 bg-stone-900 text-white shadow-xs' 
                         : 'border-stone-200/70 bg-gradient-to-r from-white to-nude-50/40 hover:bg-stone-50 text-stone-800'
@@ -311,14 +334,16 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
 
                     <div className="flex items-center gap-2">
                       <div className="w-16 h-1.5 bg-stone-200/70 rounded-full overflow-hidden hidden sm:block">
-                        <div 
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${stat.percentage}%` }}
+                          transition={{ duration: 0.8, ease: 'easeOut' }}
                           className="h-full rounded-full bg-gradient-to-r from-amber-500 to-rose-500"
-                          style={{ width: `${stat.percentage}%` }}
                         />
                       </div>
                       <ChevronRight size={14} className={isSelected ? 'text-stone-300' : 'text-stone-400'} />
                     </div>
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
@@ -343,20 +368,24 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
               </div>
             </div>
             {onSwitchToChecklist && (
-              <button 
+              <motion.button 
+                whileHover={{ x: 2 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={onSwitchToChecklist}
-                className="text-xs font-bold text-amber-700 hover:text-amber-900 inline-flex items-center gap-1"
+                className="text-xs font-bold text-amber-700 hover:text-amber-900 inline-flex items-center gap-1 cursor-pointer"
               >
                 Lihat di Checklist <ChevronRight size={14} />
-              </button>
+              </motion.button>
             )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {upcomingTasks.map(task => (
-              <div 
+              <motion.div 
                 key={task.id}
-                className="p-4 rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20 flex flex-col justify-between hover:border-amber-300 transition"
+                whileHover={{ y: -3, scale: 1.01 }}
+                transition={{ duration: 0.2 }}
+                className="p-4 rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20 flex flex-col justify-between hover:border-amber-300 transition shadow-2xs"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2">
@@ -385,7 +414,7 @@ export function StatsOverview({ stats, onSelectCategory, selectedCategory, onSel
                     {task.dueDate || task.rawDate || 'Segera'}
                   </span>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>

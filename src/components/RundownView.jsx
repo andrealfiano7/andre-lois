@@ -17,6 +17,7 @@ import {
   Timer, 
   Layers
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const PHASES = [
   'Semua',
@@ -325,19 +326,27 @@ export function RundownView({ items, onChange }) {
 
       {/* Filter Tabs & Search */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl nude-card">
-        {/* Phase Buttons */}
+        {/* Phase Buttons with Spring Indicator */}
         <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
           {PHASES.map(p => (
             <button
               key={p}
+              type="button"
               onClick={() => setSelectedPhase(p)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+              className={`relative px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
                 selectedPhase === p 
-                  ? 'bg-gradient-to-r from-amber-600 to-rose-600 text-white shadow-xs font-bold' 
+                  ? 'text-white font-bold' 
                   : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
               }`}
             >
-              {p}
+              {selectedPhase === p && (
+                <motion.div
+                  layoutId="rundownPhasePill"
+                  className="absolute inset-0 bg-gradient-to-r from-amber-600 to-rose-600 rounded-xl shadow-xs"
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                />
+              )}
+              <span className="relative z-10">{p}</span>
             </button>
           ))}
         </div>
@@ -367,8 +376,10 @@ export function RundownView({ items, onChange }) {
             const phaseMeta = getPhaseMeta(item.phase);
 
             return (
-              <div
+              <motion.div
                 key={item.id}
+                whileHover={{ y: -2, scale: 1.006 }}
+                transition={{ duration: 0.18 }}
                 className="nude-card rounded-2xl p-4 border border-stone-200/80 bg-white hover:border-amber-300 transition-all group"
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -407,38 +418,54 @@ export function RundownView({ items, onChange }) {
 
                   {/* Right: Clean Action Buttons (Edit & Delete only) */}
                   <div className="flex items-center gap-1.5 self-end md:self-center">
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.15 }}
+                      whileTap={{ scale: 0.9 }}
                       type="button"
                       onClick={() => handleOpenEdit(item)}
-                      className="p-2 rounded-xl text-stone-400 hover:text-stone-800 hover:bg-stone-100 transition"
+                      className="p-2 rounded-xl text-stone-400 hover:text-stone-800 hover:bg-stone-100 transition cursor-pointer"
                       title="Edit Agenda"
                     >
                       <Edit3 size={15} />
-                    </button>
+                    </motion.button>
 
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.15 }}
+                      whileTap={{ scale: 0.9 }}
                       type="button"
                       onClick={() => handleDelete(item.id)}
-                      className="p-2 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                      className="p-2 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                       title="Hapus Agenda"
                     >
                       <Trash2 size={15} />
-                    </button>
+                    </motion.button>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })
         )}
       </div>
 
       {/* Clean Modal Add/Edit Rundown with Smart Time Picker (Mobile Optimized) */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/40 backdrop-blur-xs animate-in fade-in">
-          <div 
-            className="w-full max-w-md max-h-[92vh] sm:max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-stone-200 flex flex-col overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-stone-950/40 backdrop-blur-xs"
+              onClick={() => setIsModalOpen(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.94, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 12 }}
+              transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+              className="relative w-full max-w-md max-h-[92vh] sm:max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-stone-200 flex flex-col overflow-hidden z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
             {/* Modal Header */}
             <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-stone-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-rose-50 flex-shrink-0">
               <div>
@@ -626,24 +653,29 @@ export function RundownView({ items, onChange }) {
 
               {/* Pinned Modal Actions Footer */}
               <div className="px-4 py-2.5 sm:py-3 sm:px-5 border-t border-stone-100 bg-stone-50/90 flex items-center justify-end gap-2 flex-shrink-0">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.96 }}
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-200/60 font-semibold transition text-xs cursor-pointer"
                 >
                   Batal
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.96 }}
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 text-white font-bold hover:from-amber-700 hover:to-rose-700 shadow-xs transition text-xs cursor-pointer"
                 >
                   Simpan Agenda
-                </button>
+                </motion.button>
               </div>
             </form>
-          </div>
+          </motion.div>
         </div>
       )}
+    </AnimatePresence>
     </div>
   );
 }

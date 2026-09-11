@@ -10,6 +10,7 @@ import {
   Trash2,
   GripVertical
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { CATEGORIES, PICS } from '../data/initialTasks';
 
 export function TaskKanbanView({ 
@@ -127,19 +128,24 @@ export function TaskKanbanView({
 
   return (
     <div className="space-y-3">
-      {/* Mobile Column Filter Pills */}
+      {/* Mobile Column Filter Pills with Spring Indicator */}
       <div className="md:hidden grid grid-cols-4 gap-1 p-1 bg-stone-100/90 rounded-2xl border border-stone-200/80">
         <button
           type="button"
           onClick={() => setMobileTab('All')}
-          className={`py-1.5 px-1 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
-            mobileTab === 'All'
-              ? 'bg-stone-900 text-white shadow-xs'
-              : 'text-stone-600 hover:text-stone-900'
+          className={`relative py-1.5 px-1 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
+            mobileTab === 'All' ? 'text-white' : 'text-stone-600 hover:text-stone-900'
           }`}
         >
-          <span>Semua</span>
-          <span className={`px-1 py-0.2 text-[9px] rounded-full tabular-nums ${
+          {mobileTab === 'All' && (
+            <motion.div
+              layoutId="kanbanMobilePill"
+              className="absolute inset-0 bg-stone-900 rounded-xl shadow-xs"
+              transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+            />
+          )}
+          <span className="relative z-10">Semua</span>
+          <span className={`relative z-10 px-1 py-0.2 text-[9px] rounded-full tabular-nums ${
             mobileTab === 'All' ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-700'
           }`}>
             {tasks.length}
@@ -155,18 +161,25 @@ export function TaskKanbanView({
               key={col.id}
               type="button"
               onClick={() => setMobileTab(col.id)}
-              className={`py-1.5 px-1 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
-                isActive
-                  ? 'bg-gradient-to-r from-amber-600 to-rose-600 text-white shadow-xs'
-                  : 'text-stone-700 hover:bg-stone-200/60'
+              className={`relative py-1.5 px-1 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
+                isActive ? 'text-white' : 'text-stone-700 hover:bg-stone-200/60'
               }`}
             >
-              <Icon size={11} className={isActive ? 'text-white shrink-0' : `${col.iconColor} shrink-0`} />
-              <span className="truncate">{col.shortLabel}</span>
-              <span className={`px-1 py-0.2 text-[9px] rounded-full tabular-nums shrink-0 ${
-                isActive ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-700'
-              }`}>
-                {count}
+              {isActive && (
+                <motion.div
+                  layoutId="kanbanMobilePill"
+                  className="absolute inset-0 bg-gradient-to-r from-amber-600 to-rose-600 rounded-xl shadow-xs"
+                  transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1">
+                <Icon size={11} className={isActive ? 'text-white shrink-0' : `${col.iconColor} shrink-0`} />
+                <span className="truncate">{col.shortLabel}</span>
+                <span className={`px-1 py-0.2 text-[9px] rounded-full tabular-nums shrink-0 ${
+                  isActive ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-700'
+                }`}>
+                  {count}
+                </span>
               </span>
             </button>
           );
@@ -232,12 +245,14 @@ export function TaskKanbanView({
                     const isDragging = draggedTaskId === task.id;
 
                     return (
-                      <div
+                      <motion.div
                         key={task.id}
+                        whileHover={{ y: -3, scale: 1.01 }}
+                        transition={{ duration: 0.18 }}
                         draggable={true}
                         onDragStart={(e) => handleDragStart(e, task.id)}
                         onDragEnd={handleDragEnd}
-                        className={`p-3 rounded-2xl border bg-gradient-to-br from-white to-nude-50/40 shadow-xs hover:border-amber-300 transition-all duration-150 group select-none cursor-grab active:cursor-grabbing ${
+                        className={`p-3 rounded-2xl border bg-gradient-to-br from-white to-nude-50/40 shadow-xs hover:border-amber-300 transition-colors group select-none cursor-grab active:cursor-grabbing ${
                           isDragging 
                             ? 'opacity-30 scale-95 border-amber-400 border-dashed bg-amber-50' 
                             : 'border-stone-200/80 hover:shadow-sm'
@@ -272,15 +287,17 @@ export function TaskKanbanView({
 
                         {/* Progress Bar */}
                         <div className="w-full h-1.5 bg-stone-100 rounded-full mt-2 overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-500 ${
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${task.progress || 0}%` }}
+                            transition={{ duration: 0.5, ease: 'easeOut' }}
+                            className={`h-full rounded-full ${
                               task.status === 'Done' 
                                 ? 'bg-gradient-to-r from-emerald-500 to-teal-500' 
                                 : task.progress > 0 
                                 ? 'bg-gradient-to-r from-amber-400 to-orange-500' 
                                 : 'bg-stone-300'
                             }`}
-                            style={{ width: `${task.progress || 0}%` }}
                           />
                         </div>
 
@@ -295,51 +312,59 @@ export function TaskKanbanView({
 
                           {/* Quick 1-tap Move & Edit Controls */}
                           <div className="flex items-center gap-1">
-                            <button
+                            <motion.button
+                              whileHover={{ scale: 1.15 }}
+                              whileTap={{ scale: 0.9 }}
                               type="button"
                               onClick={() => onEditTask(task)}
-                              className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition"
+                              className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
                               title="Edit tugas"
                             >
                               <Edit3 size={12} />
-                            </button>
+                            </motion.button>
 
-                            <button
+                            <motion.button
+                              whileHover={{ scale: 1.15 }}
+                              whileTap={{ scale: 0.9 }}
                               type="button"
                               onClick={() => onDeleteTask(task.id)}
-                              className="p-1 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                              className="p-1 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                               title="Hapus tugas"
                             >
                               <Trash2 size={12} />
-                            </button>
+                            </motion.button>
 
                             {/* Move Prev Button */}
                             {prevStatus && (
-                              <button
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.92 }}
                                 type="button"
                                 onClick={() => onUpdateStatus(task.id, prevStatus)}
-                                className="px-1.5 py-0.5 rounded-lg text-[10px] font-bold bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center gap-0.5 transition"
+                                className="px-1.5 py-0.5 rounded-lg text-[10px] font-bold bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center gap-0.5 transition cursor-pointer"
                                 title={`Pindahkan ke ${prevStatus}`}
                               >
                                 <ArrowLeft size={10} />
-                              </button>
+                              </motion.button>
                             )}
 
                             {/* Move Next Button */}
                             {nextStatus && (
-                              <button
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.92 }}
                                 type="button"
                                 onClick={() => onUpdateStatus(task.id, nextStatus)}
-                                className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center gap-0.5 shadow-2xs hover:brightness-105 transition"
+                                className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center gap-0.5 shadow-2xs hover:brightness-105 transition cursor-pointer"
                                 title={`Pindahkan ke ${nextStatus}`}
                               >
                                 <span>{nextStatus === 'Done' ? 'Selesai' : 'Proses'}</span>
                                 <ArrowRight size={10} />
-                              </button>
+                              </motion.button>
                             )}
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })
                 )}

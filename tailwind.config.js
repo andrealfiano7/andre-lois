@@ -67,6 +67,26 @@ export default {
         'glow-coral': '0 10px 25px -4px rgba(242, 142, 110, 0.35)',
         'glow-amber': '0 10px 25px -4px rgba(227, 192, 101, 0.35)',
         'glow-mint': '0 10px 25px -4px rgba(30, 184, 121, 0.35)',
+        'dock': '0 14px 40px -6px rgba(45, 37, 30, 0.18), 0 4px 12px -2px rgba(45, 37, 30, 0.08)',
+      },
+      animation: {
+        'float-gentle': 'floatGentle 4s ease-in-out infinite',
+        'pulse-subtle': 'pulseSubtle 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'shimmer-fast': 'shimmer 2s linear infinite',
+      },
+      keyframes: {
+        floatGentle: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-4px)' },
+        },
+        pulseSubtle: {
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.85', transform: 'scale(1.04)' },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        }
       }
     },
   },

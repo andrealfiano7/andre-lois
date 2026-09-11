@@ -11,6 +11,7 @@ import {
   Plus, 
   ArrowRight
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import logoImg from './assets/logo.png';
 import { useWeddingData } from './hooks/useWeddingData';
 import { useCountdown } from './hooks/useCountdown';
@@ -269,15 +270,19 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#2D251E] flex flex-col">
       {/* Top Main Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#EADBCE] shadow-xs">
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-[#EADBCE]/80 shadow-xs transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-2 sm:gap-3">
             
-            {/* Left: Brand Identity with New Cursive AL Monogram Logo */}
+            {/* Left: Brand Identity with Cursive AL Monogram Logo */}
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white border border-[#EADBCE] p-1.5 flex items-center justify-center shadow-xs flex-shrink-0">
+              <motion.div 
+                whileHover={{ scale: 1.06, rotate: 2 }} 
+                whileTap={{ scale: 0.94 }}
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white border border-[#EADBCE] p-1.5 flex items-center justify-center shadow-xs flex-shrink-0 cursor-pointer"
+              >
                 <img src={logoImg} alt="Andre & Lois Monogram" className="w-full h-full object-contain block" />
-              </div>
+              </motion.div>
               <div className="min-w-0">
                 <h1 className="text-base sm:text-lg font-extrabold text-stone-900 tracking-tight truncate">
                   Andre &amp; Lois
@@ -294,13 +299,15 @@ export default function App() {
               </div>
             </div>
 
-            {/* Right: Quick Action Controls & Mobile Dropdown Trigger */}
+            {/* Right: Quick Action Controls */}
             <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
               {/* Countdown Pill */}
-              <button
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.95 }}
                 type="button"
                 onClick={() => setIsDateModalOpen(true)}
-                className="px-2.5 sm:px-3.5 py-1.5 rounded-2xl border border-stone-200/90 bg-white hover:bg-stone-50 text-stone-800 text-xs font-bold flex items-center gap-1 sm:gap-1.5 transition shadow-xs"
+                className="px-2.5 sm:px-3.5 py-1.5 rounded-2xl border border-stone-200/90 bg-white hover:bg-stone-50 text-stone-800 text-xs font-bold flex items-center gap-1 sm:gap-1.5 transition shadow-xs cursor-pointer"
                 title="Ubah target tanggal Hari-H"
               >
                 <CalendarDays size={13} className="text-amber-600 flex-shrink-0" />
@@ -308,44 +315,50 @@ export default function App() {
                   {countdown.isPast ? 'Hari-H!' : `H-${countdown.days}`}
                   <span className="hidden sm:inline"> Hari</span>
                 </span>
-              </button>
+              </motion.button>
 
               {/* Sync from Google Sheet */}
-              <button
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.95 }}
                 type="button"
                 onClick={syncFromGoogleSheet}
                 disabled={isSyncing}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold transition shadow-xs disabled:opacity-50"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold transition shadow-xs disabled:opacity-50 cursor-pointer"
                 title="Sinkronkan data dari Google Spreadsheet"
               >
                 <RefreshCw size={13} className={isSyncing ? 'animate-spin text-amber-600' : 'text-stone-500'} />
                 <span>{isSyncing ? 'Sinkron...' : 'Sinkronkan'}</span>
-              </button>
+              </motion.button>
 
               {/* Export Button */}
-              <button
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.95 }}
                 type="button"
                 onClick={exportToCSV}
-                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold transition shadow-xs"
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold transition shadow-xs cursor-pointer"
                 title="Unduh data checklist sebagai CSV"
               >
                 <Download size={13} className="text-stone-500" />
                 <span>CSV</span>
-              </button>
+              </motion.button>
 
               {/* Quick Add Task Button (Desktop) */}
-              <button
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.95 }}
                 type="button"
                 onClick={openAddModal}
-                className="hidden sm:inline-flex px-3.5 sm:px-4 py-1.5 rounded-2xl bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 hover:from-amber-700 hover:to-rose-700 text-white text-xs font-bold items-center gap-1.5 transition shadow-xs"
+                className="hidden sm:inline-flex px-3.5 sm:px-4 py-1.5 rounded-2xl bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 hover:from-amber-700 hover:to-rose-700 text-white text-xs font-bold items-center gap-1.5 transition shadow-xs cursor-pointer"
               >
                 <Plus size={14} />
                 <span className="hidden sm:inline">Tambah Tugas</span>
-              </button>
+              </motion.button>
             </div>
           </div>
 
-          {/* Desktop Navigation Tabs (Hidden on Mobile) */}
+          {/* Desktop Navigation Tabs with Sliding Spring Pill Indicator */}
           <nav className="hidden lg:flex items-center gap-1.5 border-t border-stone-100 pt-1.5 pb-1.5">
             {MODULES.map(mod => (
               <DesktopNavTab
@@ -362,8 +375,17 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-6 flex-1 space-y-3 sm:space-y-6">
+      {/* Main Content Area with Smooth Page Crossfade Transitions */}
+      <main className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-6 flex-1 space-y-3 sm:space-y-6 pb-28 sm:pb-24 lg:pb-8">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeModule}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full"
+          >
         {/* Module 1: Dashboard Overview */}
         {activeModule === 'dashboard' && (
           <div className="space-y-4 sm:space-y-6">
@@ -536,48 +558,31 @@ export default function App() {
             onChange={handleRundownChange}
           />
         )}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Footer Branding (Copyright Only) */}
-      <footer className="mt-auto border-t border-[#EADBCE] bg-white pt-5 pb-20 lg:pb-5">
+      <footer className="mt-auto border-t border-[#EADBCE] bg-white pt-5 pb-28 lg:pb-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-stone-500">
           <p className="font-medium">© 2026 Andre &amp; Lois. All rights reserved.</p>
         </div>
       </footer>
 
-      {/* Mobile Bottom Navigation Bar (Thumb-friendly & ergonomic) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#EADBCE] shadow-lg px-2 py-1.5 flex items-center justify-around">
-        <MobileNavButton
-          active={activeModule === 'dashboard'}
-          onClick={() => setActiveModule('dashboard')}
-          icon={LayoutDashboard}
-          label="Dashboard"
-          activeColor="text-amber-600"
-        />
-        <MobileNavButton
-          active={activeModule === 'checklist'}
-          onClick={() => setActiveModule('checklist')}
-          icon={CheckSquare}
-          label="Checklist"
-          badge={tasks.length}
-          activeColor="text-emerald-600"
-        />
-        <MobileNavButton
-          active={activeModule === 'photos'}
-          onClick={() => setActiveModule('photos')}
-          icon={Camera}
-          label="Foto Tamu"
-          badge={photoList.length}
-          activeColor="text-rose-600"
-        />
-        <MobileNavButton
-          active={activeModule === 'rundown'}
-          onClick={() => setActiveModule('rundown')}
-          icon={Clock}
-          label="Rundown"
-          badge={rundownList.length}
-          activeColor="text-sky-600"
-        />
+      {/* Modern Floating Island Navigation Dock for Mobile (Ultra-modern iOS Style) */}
+      <div className="lg:hidden fixed bottom-3.5 inset-x-3 z-40 max-w-md mx-auto pointer-events-none">
+        <nav className="pointer-events-auto glass-dock rounded-3xl p-1.5 flex items-center justify-between relative shadow-dock">
+          {MODULES.map(mod => (
+            <MobileNavButton
+              key={mod.id}
+              active={activeModule === mod.id}
+              onClick={() => setActiveModule(mod.id)}
+              icon={mod.icon}
+              label={mod.shortLabel}
+              badge={mod.badge}
+            />
+          ))}
+        </nav>
       </div>
 
       {/* Modals & Notifications */}
@@ -605,49 +610,93 @@ export default function App() {
 
 function DesktopNavTab({ active, onClick, icon: Icon, label, badge, iconColor }) {
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onClick}
-      className={`px-4 py-2 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all ${
+      whileHover={{ y: -1 }}
+      whileTap={{ scale: 0.97 }}
+      className={`relative px-4 py-2 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
         active 
-          ? 'bg-gradient-to-r from-amber-600 to-rose-600 text-white shadow-xs' 
+          ? 'text-white shadow-xs' 
           : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
       }`}
     >
-      <Icon size={15} className={active ? 'text-white' : iconColor} />
-      <span>{label}</span>
-      {badge !== undefined && (
-        <span className={`px-2 py-0.2 rounded-full text-[10px] font-extrabold tabular-nums ${
-          active ? 'bg-white/20 text-white' : 'bg-stone-200/80 text-stone-700'
-        }`}>
-          {badge}
-        </span>
+      {active && (
+        <motion.div
+          layoutId="desktopActiveTabPill"
+          className="absolute inset-0 bg-gradient-to-r from-amber-600 to-rose-600 rounded-2xl shadow-xs"
+          transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+        />
       )}
-    </button>
+      <span className="relative z-10 flex items-center gap-2">
+        <Icon size={15} className={active ? 'text-white' : iconColor} />
+        <span>{label}</span>
+        {badge !== undefined && (
+          <span className={`px-2 py-0.2 rounded-full text-[10px] font-extrabold tabular-nums transition-colors ${
+            active ? 'bg-white/25 text-white' : 'bg-stone-200/80 text-stone-700'
+          }`}>
+            {badge}
+          </span>
+        )}
+      </span>
+    </motion.button>
   );
 }
 
-function MobileNavButton({ active, onClick, icon: Icon, label, badge, activeColor }) {
+function MobileNavButton({ active, onClick, icon: Icon, label, badge }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all touch-target relative ${
-        active ? `${activeColor} font-bold` : 'text-stone-400 hover:text-stone-700'
+      className={`relative flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all cursor-pointer select-none outline-none ${
+        active ? 'text-stone-900 font-bold' : 'text-stone-500 hover:text-stone-800'
       }`}
     >
-      <div className="relative">
-        <Icon size={20} className={active ? 'stroke-[2.5]' : 'stroke-2'} />
-        {badge !== undefined && (
-          <span className="absolute -top-1.5 -right-3.5 px-1.5 py-0.2 rounded-full bg-gradient-to-r from-amber-600 to-rose-600 text-white text-[9px] font-bold tabular-nums shadow-xs">
-            {badge}
-          </span>
+      {active && (
+        <motion.div
+          layoutId="mobileActiveDockPill"
+          className="absolute inset-0 bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-amber-500/15 rounded-2xl border border-amber-500/30 shadow-xs"
+          transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+        />
+      )}
+
+      <div className="relative z-10 flex flex-col items-center">
+        <motion.div
+          animate={active ? { scale: [1, 1.2, 1], y: [0, -2, 0] } : { scale: 1, y: 0 }}
+          transition={{ duration: 0.28, ease: 'easeOut' }}
+          className="relative"
+        >
+          <Icon 
+            size={19} 
+            className={`transition-colors duration-200 ${
+              active ? 'text-amber-700 stroke-[2.4]' : 'text-stone-400 stroke-2'
+            }`} 
+          />
+          {badge !== undefined && (
+            <span className={`absolute -top-1.5 -right-3.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold tabular-nums leading-none shadow-xs transition-transform ${
+              active 
+                ? 'bg-gradient-to-r from-amber-600 to-rose-600 text-white scale-105' 
+                : 'bg-stone-200 text-stone-700'
+            }`}>
+              {badge}
+            </span>
+          )}
+        </motion.div>
+
+        <span className={`text-[10px] tracking-tight mt-1 transition-colors duration-200 ${
+          active ? 'font-extrabold text-amber-950' : 'font-medium text-stone-500'
+        }`}>
+          {label}
+        </span>
+
+        {active && (
+          <motion.span
+            layoutId="mobileActiveDot"
+            className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 mt-0.5"
+            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+          />
         )}
       </div>
-      <span className="text-[10px] mt-1 tracking-tight font-semibold">{label}</span>
-      {active && (
-        <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 mt-0.5" />
-      )}
     </button>
   );
 }

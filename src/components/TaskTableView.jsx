@@ -17,6 +17,7 @@ import {
   Clock3,
   CircleDashed
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { CATEGORIES, PICS, STATUS_TYPES } from '../data/initialTasks';
 
 export function TaskTableView({ 
@@ -125,12 +126,14 @@ export function TaskTableView({
                     <tr className={`group transition-colors ${
                       isDone ? 'bg-stone-50/40 opacity-75' : 'hover:bg-amber-50/20'
                     }`}>
-                      {/* Checkbox Done */}
+                      {/* Done Checkbox */}
                       <td className="py-3 pl-4 pr-2 text-center">
-                        <button
+                        <motion.button
+                          whileHover={{ scale: 1.18 }}
+                          whileTap={{ scale: 0.8 }}
                           type="button"
                           onClick={() => onToggleDone(task.id)}
-                          className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
+                          className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all cursor-pointer ${
                             isDone 
                               ? 'bg-gradient-to-tr from-emerald-500 to-teal-600 border-emerald-500 text-white shadow-xs' 
                               : 'border-stone-300 hover:border-amber-500 bg-white'
@@ -138,7 +141,7 @@ export function TaskTableView({
                           title={isDone ? 'Tandai belum selesai' : 'Tandai tuntas'}
                         >
                           {isDone && <Check size={13} strokeWidth={3} />}
-                        </button>
+                        </motion.button>
                       </td>
 
                       {/* No */}
@@ -238,22 +241,26 @@ export function TaskTableView({
                       {/* Actions */}
                       <td className="py-3 pr-4 pl-2 text-right">
                         <div className="inline-flex items-center gap-1">
-                          <button
+                          <motion.button
+                            whileHover={{ scale: 1.15 }}
+                            whileTap={{ scale: 0.9 }}
                             type="button"
                             onClick={() => onEditTask(task)}
-                            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-800 hover:bg-stone-100 transition"
+                            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-800 hover:bg-stone-100 transition cursor-pointer"
                             title="Edit"
                           >
                             <Edit3 size={13} />
-                          </button>
-                          <button
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.15 }}
+                            whileTap={{ scale: 0.9 }}
                             type="button"
                             onClick={() => onDeleteTask(task.id)}
-                            className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                            className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                             title="Hapus"
                           >
                             <Trash2 size={13} />
-                          </button>
+                          </motion.button>
                         </div>
                       </td>
                     </tr>
@@ -278,18 +285,19 @@ export function TaskTableView({
                             <div className="flex items-center gap-1.5">
                               <span className="text-[11px] font-semibold text-stone-500">Ubah Progres:</span>
                               {[0, 25, 50, 75, 100].map(val => (
-                                <button
+                                <motion.button
                                   key={val}
+                                  whileTap={{ scale: 0.92 }}
                                   type="button"
                                   onClick={() => onUpdateProgress(task.id, val)}
-                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition ${
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
                                     task.progress === val 
                                       ? 'bg-gradient-to-r from-amber-600 to-rose-600 text-white border-transparent shadow-xs' 
                                       : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
                                   }`}
                                 >
                                   {val}%
-                                </button>
+                                </motion.button>
                               ))}
                             </div>
                           </div>
@@ -313,15 +321,19 @@ export function TaskTableView({
           const picMeta = getPicMeta(task.pic);
 
           return (
-            <div 
+            <motion.div 
               key={task.id}
+              whileHover={{ y: -2 }}
+              transition={{ duration: 0.2 }}
               className={`nude-card rounded-2xl p-3 sm:p-4 transition-all ${
                 isDone ? 'bg-stone-50/60 opacity-80' : 'bg-white'
               }`}
             >
               <div className="flex items-start gap-3">
                 {/* Checkbox button */}
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.15 }}
+                  whileTap={{ scale: 0.8 }}
                   type="button"
                   onClick={() => onToggleDone(task.id)}
                   className={`w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 mt-0.5 transition-all cursor-pointer ${
@@ -332,7 +344,7 @@ export function TaskTableView({
                   title={isDone ? 'Tandai belum selesai' : 'Tandai tuntas'}
                 >
                   {isDone && <Check size={12} strokeWidth={3} />}
-                </button>
+                </motion.button>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
@@ -356,7 +368,10 @@ export function TaskTableView({
 
                   {/* Progress bar */}
                   <div className="w-full h-1.5 bg-stone-100 rounded-full mt-2.5 overflow-hidden">
-                    <div 
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${task.progress || 0}%` }}
+                      transition={{ duration: 0.5, ease: 'easeOut' }}
                       className={`h-full rounded-full ${
                         isDone 
                           ? 'bg-gradient-to-r from-emerald-500 to-teal-500' 
@@ -364,7 +379,6 @@ export function TaskTableView({
                           ? 'bg-gradient-to-r from-amber-400 to-orange-500' 
                           : 'bg-stone-300'
                       }`}
-                      style={{ width: `${task.progress || 0}%` }}
                     />
                   </div>
 
@@ -381,7 +395,7 @@ export function TaskTableView({
                       <select
                         value={task.status}
                         onChange={(e) => onUpdateStatus(task.id, e.target.value)}
-                        className={`text-[11px] font-bold rounded-lg px-2 py-1 border outline-none ${
+                        className={`text-[11px] font-bold rounded-lg px-2 py-1 border outline-none cursor-pointer ${
                           task.status === 'Done' 
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
                             : task.status === 'Working on It' 
@@ -394,19 +408,21 @@ export function TaskTableView({
                         <option value="Done">Tuntas</option>
                       </select>
 
-                      <button
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         type="button"
                         onClick={() => onEditTask(task)}
-                        className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 bg-stone-50 border border-stone-200"
+                        className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 bg-stone-50 border border-stone-200 cursor-pointer"
                         title="Edit"
                       >
                         <Edit3 size={13} />
-                      </button>
+                      </motion.button>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           );
         })}
       </div>
