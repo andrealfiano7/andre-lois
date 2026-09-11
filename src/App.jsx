@@ -21,7 +21,6 @@ import { StatsOverview } from './components/StatsOverview';
 import { ViewSwitcher } from './components/ViewSwitcher';
 import { FilterBar } from './components/FilterBar';
 import { TaskTableView } from './components/TaskTableView';
-import { TaskKanbanView } from './components/TaskKanbanView';
 import { TaskTimelineView } from './components/TaskTimelineView';
 import { TaskPicView } from './components/TaskPicView';
 import { TaskModal } from './components/TaskModal';
@@ -239,7 +238,7 @@ export default function App() {
       id: 'checklist',
       label: 'Wedding Checklist',
       shortLabel: 'Checklist',
-      desc: '48 tugas persiapan (Tabel, Kanban, Timeline, PIC)',
+      desc: '48 tugas persiapan (Checklist, Linimasa, PIC)',
       icon: CheckSquare,
       badge: tasks.length,
       color: 'text-emerald-500',
@@ -411,7 +410,7 @@ export default function App() {
                 </div>
                 <h3 className="text-sm font-bold text-stone-900">Wedding Checklist</h3>
                 <p className="text-xs text-stone-500 mt-1">
-                  Buka detail 48 tugas dengan 4 tampilan (Tabel, Kanban, Timeline, PIC).
+                  Buka detail 48 tugas dengan 3 tampilan (Checklist, Linimasa, PIC).
                 </p>
                 <div className="mt-3.5 text-xs font-bold text-emerald-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                   Kelola tugas ({stats.completed}/{stats.total} selesai) <ArrowRight size={13} />
@@ -510,15 +509,6 @@ export default function App() {
                 tasks={filteredTasks}
                 onToggleDone={toggleTaskDone}
                 onUpdateProgress={updateTaskProgress}
-                onUpdateStatus={updateTaskStatus}
-                onEditTask={openEditModal}
-                onDeleteTask={deleteTask}
-              />
-            )}
-
-            {activeView === 'kanban' && (
-              <TaskKanbanView
-                tasks={filteredTasks}
                 onUpdateStatus={updateTaskStatus}
                 onEditTask={openEditModal}
                 onDeleteTask={deleteTask}
