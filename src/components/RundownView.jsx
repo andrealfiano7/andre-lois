@@ -15,7 +15,8 @@ import {
   User, 
   Check, 
   Timer, 
-  Layers
+  Layers,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -380,50 +381,35 @@ export function RundownView({ items, onChange }) {
                 key={item.id}
                 whileHover={{ y: -2, scale: 1.006 }}
                 transition={{ duration: 0.18 }}
-                className="nude-card rounded-2xl p-4 border border-stone-200/80 bg-white hover:border-amber-300 transition-all group"
+                className="nude-card rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 bg-white hover:border-amber-300 transition-all shadow-xs group"
               >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                  {/* Left: Time badge & activity info */}
-                  <div className="flex items-start md:items-center gap-3.5">
-                    {/* Time Block */}
-                    <div className="px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-gradient-to-b from-nude-50 to-amber-50/40 flex flex-col items-center justify-center flex-shrink-0 min-w-[110px] shadow-xs">
-                      <span className="text-xs font-extrabold text-stone-900 tabular-nums">
-                        {item.time}
-                      </span>
-                      <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.2 rounded-full mt-0.5">
+                {/* 1. Header Bar: Badges on left, Actions on right */}
+                <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-stone-100">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                    {/* Time Pill */}
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50/60 border border-amber-200/80 text-stone-900 font-extrabold text-xs tabular-nums shadow-2xs">
+                      <Clock size={12} className="text-amber-700 shrink-0" />
+                      <span>{item.time}</span>
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-200/60 px-1.5 py-0.2 rounded-md">
                         {item.duration}
                       </span>
-                    </div>
+                    </span>
 
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${phaseMeta.badge}`}>
-                          {phaseMeta.icon}
-                          {item.phase}
-                        </span>
-                        <h4 className="text-sm font-bold text-stone-900">
-                          {item.activity}
-                        </h4>
-                      </div>
-
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-stone-500">
-                        <span className="font-bold text-stone-700 flex items-center gap-1">
-                          <User size={12} className="text-stone-400" />
-                          PIC: {item.pic}
-                        </span>
-                        {item.note && <span className="text-stone-500">· {item.note}</span>}
-                      </div>
-                    </div>
+                    {/* Phase Badge */}
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold border shadow-2xs ${phaseMeta.badge}`}>
+                      {phaseMeta.icon}
+                      <span>{item.phase}</span>
+                    </span>
                   </div>
 
-                  {/* Right: Clean Action Buttons (Edit & Delete only) */}
-                  <div className="flex items-center gap-1.5 self-end md:self-center">
+                  {/* Actions: Edit & Delete */}
+                  <div className="flex items-center gap-1 shrink-0">
                     <motion.button
                       whileHover={{ scale: 1.15 }}
                       whileTap={{ scale: 0.9 }}
                       type="button"
                       onClick={() => handleOpenEdit(item)}
-                      className="p-2 rounded-xl text-stone-400 hover:text-stone-800 hover:bg-stone-100 transition cursor-pointer"
+                      className="p-1.5 rounded-lg text-stone-400 hover:text-stone-800 hover:bg-stone-100 transition cursor-pointer"
                       title="Edit Agenda"
                     >
                       <Edit3 size={15} />
@@ -434,12 +420,39 @@ export function RundownView({ items, onChange }) {
                       whileTap={{ scale: 0.9 }}
                       type="button"
                       onClick={() => handleDelete(item.id)}
-                      className="p-2 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                      className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                       title="Hapus Agenda"
                     >
                       <Trash2 size={15} />
                     </motion.button>
                   </div>
+                </div>
+
+                {/* 2. Content Body: Activity, PIC, and Note */}
+                <div className="pt-2.5 space-y-2">
+                  {/* Activity Title - prominent & full width */}
+                  <h4 className="text-sm sm:text-base font-bold text-stone-900 leading-snug">
+                    {item.activity}
+                  </h4>
+
+                  {/* PIC Row - clean tag */}
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-100/80 text-stone-700 font-medium">
+                      <User size={12} className="text-stone-500 shrink-0" />
+                      <span className="text-stone-500">PIC:</span>
+                      <span className="font-bold text-stone-900">{item.pic}</span>
+                    </span>
+                  </div>
+
+                  {/* Note Callout (if present) - clean card with subtle icon & full width */}
+                  {item.note && (
+                    <div className="p-2.5 rounded-xl bg-stone-50/90 border border-stone-200/70 text-xs text-stone-600 flex items-start gap-2">
+                      <FileText size={13} className="text-amber-700/70 shrink-0 mt-0.5" />
+                      <p className="leading-relaxed text-stone-700 flex-1 break-words">
+                        {item.note}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             );
