@@ -9,15 +9,7 @@ import {
   RefreshCw, 
   ExternalLink, 
   Plus, 
-  Sparkles,
-  RotateCcw,
-  Upload,
-  Heart,
-  Layers,
-  ArrowRight,
-  Menu,
-  X,
-  ChevronDown
+  ArrowRight
 } from 'lucide-react';
 import logoImg from './assets/logo.png';
 import { useWeddingData } from './hooks/useWeddingData';
@@ -73,7 +65,6 @@ export default function App() {
 
   // Active module / sheet tab: 'dashboard' | 'checklist' | 'photos' | 'rundown'
   const [activeModule, setActiveModule] = useState('dashboard');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Checklist sub-views: 'table' | 'kanban' | 'timeline' | 'pic'
   const [activeView, setActiveView] = useState('table');
@@ -275,10 +266,8 @@ export default function App() {
     }
   ], [stats.overallProgress, tasks.length, photoList.length, rundownList.length]);
 
-  const currentModule = MODULES.find(m => m.id === activeModule) || MODULES[0];
-
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#2D251E] flex flex-col pb-28 lg:pb-8">
+    <div className="min-h-screen bg-[#FAF7F2] text-[#2D251E] flex flex-col">
       {/* Top Main Navigation Bar */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#EADBCE] shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -353,116 +342,6 @@ export default function App() {
                 <Plus size={14} />
                 <span className="hidden sm:inline">Tambah Tugas</span>
               </button>
-
-              {/* Mobile Navigation Dropdown Button (Integrated cleanly in header bar) */}
-              <div className="lg:hidden relative">
-                <button
-                  type="button"
-                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition shadow-xs ${
-                    isMobileMenuOpen 
-                      ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold' 
-                      : 'bg-white border-stone-200 text-stone-800 hover:bg-stone-50 font-semibold'
-                  }`}
-                  aria-label="Buka menu navigasi dropdown"
-                >
-                  <currentModule.icon size={13} className={currentModule.color} />
-                  <span className="text-xs max-w-[78px] truncate">{currentModule.shortLabel}</span>
-                  <ChevronDown size={12} className={`text-stone-400 transition-transform duration-200 ${isMobileMenuOpen ? 'rotate-180 text-amber-600' : ''}`} />
-                </button>
-
-                {/* Mobile Dropdown Panel Overlay */}
-                {isMobileMenuOpen && (
-                  <>
-                    {/* Backdrop */}
-                    <div 
-                      className="fixed inset-0 z-40 bg-stone-950/20 backdrop-blur-2xs transition-opacity"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    />
-                    {/* Dropdown Content */}
-                    <div className="absolute right-0 top-full mt-2 z-50 w-72 max-w-[calc(100vw-24px)] bg-white rounded-3xl border border-[#EADBCE] shadow-2xl p-2.5 space-y-1 animate-in fade-in slide-in-from-top-2 duration-150">
-                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-600">
-                        Pilih Lembar Kerja:
-                      </div>
-
-                      {MODULES.map(mod => {
-                        const Icon = mod.icon;
-                        const isActive = activeModule === mod.id;
-                        return (
-                          <button
-                            key={mod.id}
-                            type="button"
-                            onClick={() => {
-                              setActiveModule(mod.id);
-                              setIsMobileMenuOpen(false);
-                            }}
-                            className={`w-full flex items-center justify-between p-2.5 rounded-2xl text-left transition ${
-                              isActive 
-                                ? 'bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 border border-amber-300 text-stone-900 font-bold' 
-                                : 'hover:bg-stone-50 text-stone-700'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${mod.bg}`}>
-                                <Icon size={16} />
-                              </span>
-                              <div className="min-w-0">
-                                <div className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
-                                  <span>{mod.label}</span>
-                                  {isActive && (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-                                  )}
-                                </div>
-                                <div className="text-[10px] text-stone-500 truncate mt-0.5">
-                                  {mod.desc}
-                                </div>
-                              </div>
-                            </div>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full tabular-nums flex-shrink-0 ${
-                              isActive ? 'bg-amber-200/80 text-amber-900 font-extrabold' : 'bg-stone-100 text-stone-700'
-                            }`}>
-                              {mod.badge}
-                            </span>
-                          </button>
-                        );
-                      })}
-
-                      {/* Quick Actions in Mobile Dropdown */}
-                      <div className="pt-2 mt-1.5 border-t border-stone-100 space-y-1">
-                        <div className="px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-stone-600">
-                          Aksi Cepat:
-                        </div>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              openAddModal();
-                              setIsMobileMenuOpen(false);
-                            }}
-                            className="p-2 rounded-xl bg-gradient-to-r from-stone-900 to-stone-800 text-white text-xs font-bold flex items-center justify-center gap-1 shadow-xs"
-                          >
-                            <Plus size={12} />
-                            <span>Tambah Tugas</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              syncFromGoogleSheet();
-                              setIsMobileMenuOpen(false);
-                            }}
-                            disabled={isSyncing}
-                            className="p-2 rounded-xl border border-stone-200 bg-stone-50 text-stone-700 text-xs font-semibold flex items-center justify-center gap-1"
-                          >
-                            <RefreshCw size={12} className={isSyncing ? 'animate-spin text-amber-600' : 'text-stone-500'} />
-                            <span>{isSyncing ? 'Sinkron...' : 'Sinkron'}</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
             </div>
           </div>
 
@@ -660,7 +539,7 @@ export default function App() {
       </main>
 
       {/* Footer Branding (Copyright Only) */}
-      <footer className="mt-auto border-t border-[#EADBCE] bg-white py-5">
+      <footer className="mt-auto border-t border-[#EADBCE] bg-white pt-5 pb-20 lg:pb-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-stone-500">
           <p className="font-medium">© 2026 Andre &amp; Lois. All rights reserved.</p>
         </div>
