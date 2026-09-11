@@ -579,7 +579,6 @@ export default function App() {
               onClick={() => setActiveModule(mod.id)}
               icon={mod.icon}
               label={mod.shortLabel}
-              badge={mod.badge}
             />
           ))}
         </nav>
@@ -643,7 +642,7 @@ function DesktopNavTab({ active, onClick, icon: Icon, label, badge, iconColor })
   );
 }
 
-function MobileNavButton({ active, onClick, icon: Icon, label, badge }) {
+function MobileNavButton({ active, onClick, icon: Icon, label }) {
   return (
     <button
       type="button"
@@ -662,25 +661,16 @@ function MobileNavButton({ active, onClick, icon: Icon, label, badge }) {
 
       <div className="relative z-10 flex flex-col items-center">
         <motion.div
-          animate={active ? { scale: [1, 1.2, 1], y: [0, -2, 0] } : { scale: 1, y: 0 }}
+          animate={active ? { scale: [1, 1.18, 1], y: [0, -2, 0] } : { scale: 1, y: 0 }}
           transition={{ duration: 0.28, ease: 'easeOut' }}
-          className="relative"
+          className="flex items-center justify-center"
         >
           <Icon 
-            size={19} 
+            size={21} 
             className={`transition-colors duration-200 ${
-              active ? 'text-amber-700 stroke-[2.4]' : 'text-stone-400 stroke-2'
+              active ? 'text-amber-700 stroke-[2.3]' : 'text-stone-400 stroke-[1.8]'
             }`} 
           />
-          {badge !== undefined && (
-            <span className={`absolute -top-1.5 -right-3.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold tabular-nums leading-none shadow-xs transition-transform ${
-              active 
-                ? 'bg-gradient-to-r from-amber-600 to-rose-600 text-white scale-105' 
-                : 'bg-stone-200 text-stone-700'
-            }`}>
-              {badge}
-            </span>
-          )}
         </motion.div>
 
         <span className={`text-[10px] tracking-tight mt-1 transition-colors duration-200 ${
