@@ -66,7 +66,8 @@ async function main() {
   }
 
   // 3. Seed Rundown Items
-  console.log(`⏱️ Seeding ${INITIAL_RUNDOWN.length} rundown items...`);
+  console.log(`⏱️ Clearing and seeding ${INITIAL_RUNDOWN.length} real rundown items...`);
+  await prisma.rundownItem.deleteMany({});
   for (const item of INITIAL_RUNDOWN) {
     await prisma.rundownItem.upsert({
       where: { id: item.id },

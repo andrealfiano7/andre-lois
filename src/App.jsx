@@ -30,7 +30,7 @@ import { GuestPhotoView } from './components/GuestPhotoView';
 import { RundownView } from './components/RundownView';
 
 const PHOTO_STORAGE = 'wedding_photo_list_v4_clean';
-const RUNDOWN_STORAGE = 'wedding_rundown_v4_clean';
+const RUNDOWN_STORAGE = 'wedding_rundown_v5_live';
 
 const loadStorage = (key, fallback) => {
   try {
@@ -85,25 +85,78 @@ export default function App() {
   const [photoList, setPhotoList] = useState(() => loadStorage(PHOTO_STORAGE, INITIAL_PHOTO_LIST));
   const [rundownList, setRundownList] = useState(() => loadStorage(RUNDOWN_STORAGE, INITIAL_RUNDOWN));
 
-  // Sync photos & rundown from Neon Database on mount
+  // Realtime Live Sync for Rundown & Photos from Neon Database
   useEffect(() => {
-    fetch('/api/photos')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-          setPhotoList(data.data);
-        }
-      })
-      .catch(() => {});
+    let isMounted = true;
 
-    fetch('/api/rundown')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-          setRundownList(data.data);
-        }
-      })
-      .catch(() => {});
+    const syncRundown = () => {
+      fetch('/api/rundown')
+        .then(res => res.json())
+        .then(data => {
+          if (isMounted && data.success && Array.isArray(data.data) && data.data.length > 0) {
+            setRundownList(prev => {
+              const prevStr = JSON.stringify(prev);
+              const nextStr = JSON.stringify(data.data);
+              return prevStr !== nextStr ? data.data : prev;
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
+    const syncPhotos = () => {
+      fetch('/api/photos')
+        .then(res => res.json())
+        .then(data => {
+          if (isMounted && data.success && Array.isArray(data.data) && data.data.length > 0) {
+            setPhotoList(prev => {
+              const prevStr = JSON.stringify(prev);
+              const nextStr = JSON.stringify(data.data);
+              return prevStr !== nextStr ? data.data : prev;
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
+    // Initial sync
+    syncRundown();
+    syncPhotos();
+
+    // Poll for updates every 4 seconds
+    const interval = setInterval(() => {
+      syncRundown();
+      syncPhotos();
+    }, 4000);
+
+    // Sync immediately on focus or tab visibility change
+    const handleActiveSync = () => {
+      if (document.visibilityState === 'visible') {
+        syncRundown();
+        syncPhotos();
+      }
+    };
+    window.addEventListener('focus', handleActiveSync);
+    document.addEventListener('visibilitychange', handleActiveSync);
+
+    // Instant cross-tab sync via storage events
+    const handleStorage = (e) => {
+      if (e.key === RUNDOWN_STORAGE && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          setRundownList(parsed);
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', handleActiveSync);
+      document.removeEventListener('visibilitychange', handleActiveSync);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   // Sync to LocalStorage

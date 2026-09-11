@@ -1,4 +1,4 @@
-﻿import { prisma } from './_lib/prisma.js';
+import { prisma } from './_lib/prisma.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const items = await prisma.rundownItem.findMany({
-        orderBy: { createdAt: 'asc' }
+        orderBy: { time: 'asc' }
       });
       return res.status(200).json({ success: true, data: items });
     }
@@ -20,22 +20,40 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const data = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
       if (Array.isArray(data)) {
+        const incomingIds = data.map(item => item.id).filter(Boolean);
+        if (incomingIds.length > 0) {
+          await prisma.rundownItem.deleteMany({
+            where: { id: { notIn: incomingIds } }
+          });
+        }
         for (const item of data) {
           await prisma.rundownItem.upsert({
             where: { id: item.id },
             update: {
-              status: item.status,
-              note: item.note,
+              status: item.status || 'Upcoming',
+              note: item.note || '',
               time: item.time,
               activity: item.activity,
               pic: item.pic,
               phase: item.phase,
               duration: item.duration
             },
-            create: item
+            create: {
+              id: item.id,
+              status: item.status || 'Upcoming',
+              note: item.note || '',
+              time: item.time,
+              activity: item.activity,
+              pic: item.pic,
+              phase: item.phase,
+              duration: item.duration
+            }
           });
         }
-        return res.status(200).json({ success: true, message: 'Batch rundown updated' });
+        const updatedItems = await prisma.rundownItem.findMany({
+          orderBy: { time: 'asc' }
+        });
+        return res.status(200).json({ success: true, message: 'Batch rundown updated', data: updatedItems });
       }
 
       const newItem = await prisma.rundownItem.create({
