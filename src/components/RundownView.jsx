@@ -5,7 +5,6 @@ import {
   Plus, 
   Edit3, 
   Trash2, 
-  Printer, 
   Search, 
   Sparkles, 
   Info, 
@@ -13,7 +12,6 @@ import {
   Church, 
   PartyPopper, 
   Moon, 
-  Coffee, 
   User, 
   Check, 
   Timer, 
@@ -24,10 +22,44 @@ const PHASES = [
   'Semua',
   'Persiapan Pagi',
   'Pemberkatan',
-  'Siang / Adat',
   'Resepsi',
   'Penutupan'
 ];
+
+// Helper to convert any time string to strict 24-hour HH:MM format
+function to24Hour(timeStr) {
+  if (!timeStr) return '08:00';
+  const clean = timeStr.trim();
+  const match = clean.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+  if (!match) {
+    const parts = clean.split(':');
+    if (parts.length >= 2) {
+      const h = parseInt(parts[0], 10) || 0;
+      const m = parseInt(parts[1], 10) || 0;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+    return clean;
+  }
+  let h = parseInt(match[1], 10);
+  const m = match[2];
+  const meridiem = match[3];
+  if (meridiem) {
+    const isPM = meridiem.toLowerCase() === 'pm';
+    if (isPM && h < 12) h += 12;
+    if (!isPM && h === 12) h = 0;
+  }
+  return `${String(h).padStart(2, '0')}:${m}`;
+}
+
+// Convert time range to 24-hour format, e.g. "08:00 AM - 10:00 AM" -> "08:00 - 10:00"
+function formatRangeTo24Hour(rangeStr) {
+  if (!rangeStr) return '';
+  const parts = rangeStr.split('-').map(t => t.trim());
+  if (parts.length === 2) {
+    return `${to24Hour(parts[0])} - ${to24Hour(parts[1])}`;
+  }
+  return to24Hour(rangeStr);
+}
 
 // Helper to compute minutes between HH:MM and HH:MM
 function calculateMinutes(start, end) {
@@ -76,41 +108,57 @@ export function RundownView({ items, onChange }) {
   const [pic, setPic] = useState('Bride & Groom');
   const [note, setNote] = useState('');
 
+  // Normalize items to ensure no legacy 'Siang / Adat' remains and time is 24-hour
+  const normalizedItems = useMemo(() => {
+    return items.map(item => {
+      let currentPhase = item.phase;
+      if (!currentPhase || currentPhase === 'Siang / Adat' || currentPhase.includes('Adat')) {
+        const startH = parseInt(item.time?.split(':')[0] || '12', 10);
+        currentPhase = startH < 14 ? 'Pemberkatan' : 'Resepsi';
+      }
+      return {
+        ...item,
+        phase: currentPhase,
+        time: formatRangeTo24Hour(item.time)
+      };
+    });
+  }, [items]);
+
   // Stats calculation (Clean operational metrics, no status)
   const stats = useMemo(() => {
-    const total = items.length;
-    // Calculate total minutes
+    const total = normalizedItems.length;
     let totalMinutes = 0;
-    items.forEach(i => {
+    normalizedItems.forEach(i => {
       const match = (i.duration || '').match(/(\d+)/);
       if (match) totalMinutes += parseInt(match[1], 10);
     });
     const hours = (totalMinutes / 60).toFixed(1);
     
     // Unique PICs count
-    const pics = new Set(items.map(i => i.pic).filter(Boolean));
+    const pics = new Set(normalizedItems.map(i => i.pic).filter(Boolean));
 
     return { total, hours, picCount: pics.size };
-  }, [items]);
+  }, [normalizedItems]);
 
-  // Phase Icon & Color Helper
+  // Phase Icon & Color Helper (Strictly without Adat)
   const getPhaseMeta = (p) => {
+    if (!p) return { icon: <Layers size={13} className="text-stone-500" />, badge: 'bg-stone-50 text-stone-800 border-stone-200' };
     if (p.includes('Pagi')) return { icon: <Sun size={13} className="text-amber-500" />, badge: 'bg-amber-50 text-amber-900 border-amber-200' };
     if (p.includes('Pemberkatan')) return { icon: <Church size={13} className="text-purple-600" />, badge: 'bg-purple-50 text-purple-900 border-purple-200' };
-    if (p.includes('Siang') || p.includes('Adat')) return { icon: <Coffee size={13} className="text-orange-600" />, badge: 'bg-orange-50 text-orange-900 border-orange-200' };
     if (p.includes('Resepsi')) return { icon: <PartyPopper size={13} className="text-rose-500" />, badge: 'bg-rose-50 text-rose-900 border-rose-200' };
-    return { icon: <Moon size={13} className="text-sky-600" />, badge: 'bg-sky-50 text-sky-900 border-sky-200' };
+    if (p.includes('Penutupan')) return { icon: <Moon size={13} className="text-sky-600" />, badge: 'bg-sky-50 text-sky-900 border-sky-200' };
+    return { icon: <Layers size={13} className="text-stone-500" />, badge: 'bg-stone-50 text-stone-800 border-stone-200' };
   };
 
   // Filter items
   const filteredItems = useMemo(() => {
-    return items.filter(item => {
+    return normalizedItems.filter(item => {
       const matchPhase = selectedPhase === 'Semua' || item.phase === selectedPhase;
       const q = searchQuery.toLowerCase().trim();
       const matchQuery = !q || [item.activity, item.pic, item.note, item.time, item.phase].some(v => v?.toLowerCase().includes(q));
       return matchPhase && matchQuery;
     });
-  }, [items, selectedPhase, searchQuery]);
+  }, [normalizedItems, selectedPhase, searchQuery]);
 
   // Handle open modal for add
   const handleOpenAdd = () => {
@@ -129,19 +177,24 @@ export function RundownView({ items, onChange }) {
   const handleOpenEdit = (item) => {
     setEditingItem(item);
     
-    // Parse time if format is "HH:MM - HH:MM"
+    // Parse time in strict 24-hour format
     let s = '08:00';
     let e = '09:00';
     if (item.time) {
       const parts = item.time.split('-').map(t => t.trim());
-      if (parts[0] && parts[0].includes(':')) s = parts[0];
-      if (parts[1] && parts[1].includes(':')) e = parts[1];
+      if (parts[0]) s = to24Hour(parts[0]);
+      if (parts[1]) e = to24Hour(parts[1]);
     }
 
     setStartTime(s);
     setEndTime(e);
     setCustomDuration(item.duration || '60m');
-    setPhase(item.phase || 'Persiapan Pagi');
+    let itemPhase = item.phase;
+    if (itemPhase === 'Siang / Adat' || itemPhase?.includes('Adat')) {
+      const startH = parseInt(s.split(':')[0] || '12', 10);
+      itemPhase = startH < 14 ? 'Pemberkatan' : 'Resepsi';
+    }
+    setPhase(itemPhase || 'Persiapan Pagi');
     setActivity(item.activity || '');
     setPic(item.pic || 'Bride & Groom');
     setNote(item.note || '');
@@ -179,7 +232,7 @@ export function RundownView({ items, onChange }) {
     e.preventDefault();
     if (!activity.trim()) return;
 
-    const timeFormatted = `${startTime} - ${endTime}`;
+    const timeFormatted = `${to24Hour(startTime)} - ${to24Hour(endTime)}`;
     const payload = {
       time: timeFormatted,
       duration: customDuration || `${calculateMinutes(startTime, endTime)}m`,
@@ -194,6 +247,7 @@ export function RundownView({ items, onChange }) {
     } else {
       const newItem = {
         id: `rd-${Date.now()}`,
+        status: 'Upcoming',
         ...payload
       };
       onChange([...items, newItem]);
@@ -224,17 +278,8 @@ export function RundownView({ items, onChange }) {
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
           <button
             type="button"
-            onClick={() => window.print()}
-            className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-semibold bg-white/90 hover:bg-white border border-stone-300/80 text-stone-700 shadow-xs transition flex items-center gap-1.5"
-          >
-            <Printer size={13} />
-            <span>Cetak</span>
-          </button>
-
-          <button
-            type="button"
             onClick={handleOpenAdd}
-            className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-stone-900 to-stone-800 hover:from-stone-800 hover:to-stone-700 text-white shadow-xs transition flex items-center gap-1.5"
+            className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-stone-900 to-stone-800 hover:from-stone-800 hover:to-stone-700 text-white shadow-xs transition flex items-center gap-1.5 cursor-pointer"
           >
             <Plus size={13} />
             <span>Tambah Agenda</span>
@@ -413,35 +458,95 @@ export function RundownView({ items, onChange }) {
             </div>
 
             <form onSubmit={handleSave} className="p-6 space-y-4 text-xs">
-              {/* Time Pickers (Jam Mulai & Jam Selesai) */}
+              {/* Time Pickers (Format 24 Jam: Jam Mulai & Jam Selesai) */}
               <div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1.5 flex items-center gap-1">
-                      <Clock size={12} className="text-amber-600" />
-                      <span>Jam Mulai</span> <span className="text-rose-500">*</span>
+                    <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Clock size={12} className="text-amber-600" />
+                        <span>Jam Mulai (24 Jam)</span> <span className="text-rose-500">*</span>
+                      </span>
+                      <span className="text-[9px] font-bold text-amber-900 bg-amber-100/80 px-1.5 py-0.2 rounded-full">
+                        24 Jam (WIB)
+                      </span>
                     </label>
-                    <input
-                      type="time"
-                      required
-                      value={startTime}
-                      onChange={(e) => handleStartTimeChange(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-300 text-sm font-semibold text-stone-800 bg-white outline-none focus:border-amber-600 shadow-xs cursor-pointer"
-                    />
+                    <div className="grid grid-cols-2 gap-1.5 bg-stone-50 p-1.5 rounded-2xl border border-stone-200">
+                      <div>
+                        <span className="block text-[9px] font-semibold text-stone-400 text-center mb-0.5">Jam (00-23)</span>
+                        <select
+                          value={startTime.split(':')[0] || '08'}
+                          onChange={(e) => {
+                            const m = startTime.split(':')[1] || '00';
+                            handleStartTimeChange(`${e.target.value.padStart(2, '0')}:${m}`);
+                          }}
+                          className="w-full px-2 py-2 rounded-xl border border-stone-300 text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
+                        >
+                          {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-semibold text-stone-400 text-center mb-0.5">Menit</span>
+                        <select
+                          value={startTime.split(':')[1] || '00'}
+                          onChange={(e) => {
+                            const h = startTime.split(':')[0] || '08';
+                            handleStartTimeChange(`${h}:${e.target.value.padStart(2, '0')}`);
+                          }}
+                          className="w-full px-2 py-2 rounded-xl border border-stone-300 text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
+                        >
+                          {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1.5 flex items-center gap-1">
-                      <Clock size={12} className="text-amber-600" />
-                      <span>Jam Selesai</span> <span className="text-rose-500">*</span>
+                    <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Clock size={12} className="text-amber-600" />
+                        <span>Jam Selesai (24 Jam)</span> <span className="text-rose-500">*</span>
+                      </span>
+                      <span className="text-[9px] font-bold text-amber-900 bg-amber-100/80 px-1.5 py-0.2 rounded-full">
+                        24 Jam (WIB)
+                      </span>
                     </label>
-                    <input
-                      type="time"
-                      required
-                      value={endTime}
-                      onChange={(e) => handleEndTimeChange(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-300 text-sm font-semibold text-stone-800 bg-white outline-none focus:border-amber-600 shadow-xs cursor-pointer"
-                    />
+                    <div className="grid grid-cols-2 gap-1.5 bg-stone-50 p-1.5 rounded-2xl border border-stone-200">
+                      <div>
+                        <span className="block text-[9px] font-semibold text-stone-400 text-center mb-0.5">Jam (00-23)</span>
+                        <select
+                          value={endTime.split(':')[0] || '09'}
+                          onChange={(e) => {
+                            const m = endTime.split(':')[1] || '00';
+                            handleEndTimeChange(`${e.target.value.padStart(2, '0')}:${m}`);
+                          }}
+                          className="w-full px-2 py-2 rounded-xl border border-stone-300 text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
+                        >
+                          {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-semibold text-stone-400 text-center mb-0.5">Menit</span>
+                        <select
+                          value={endTime.split(':')[1] || '00'}
+                          onChange={(e) => {
+                            const h = endTime.split(':')[0] || '09';
+                            handleEndTimeChange(`${h}:${e.target.value.padStart(2, '0')}`);
+                          }}
+                          className="w-full px-2 py-2 rounded-xl border border-stone-300 text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
+                        >
+                          {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -452,6 +557,9 @@ export function RundownView({ items, onChange }) {
                     <span className="font-extrabold text-amber-900 tabular-nums">
                       {customDuration || '60m'}
                     </span>
+                    <span className="text-[11px] text-amber-800 font-mono font-bold">
+                      ({startTime} - {endTime} WIB)
+                    </span>
                   </div>
 
                   {/* Quick Preset Buttons */}
@@ -461,7 +569,7 @@ export function RundownView({ items, onChange }) {
                         key={mins}
                         type="button"
                         onClick={() => handleQuickAddDuration(mins)}
-                        className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white text-stone-700 border border-stone-200 hover:border-amber-400 hover:text-amber-800 transition shadow-xs whitespace-nowrap"
+                        className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white text-stone-700 border border-stone-200 hover:border-amber-400 hover:text-amber-800 transition shadow-xs whitespace-nowrap cursor-pointer"
                       >
                         +{mins}m
                       </button>

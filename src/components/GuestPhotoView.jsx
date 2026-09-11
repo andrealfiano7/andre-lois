@@ -6,7 +6,6 @@ import {
   Plus, 
   Edit3, 
   Trash2, 
-  Printer, 
   Copy, 
   Check, 
   AlertCircle, 
@@ -201,18 +200,8 @@ export function GuestPhotoView({ items, onChange }) {
 
           <button
             type="button"
-            onClick={() => window.print()}
-            className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-semibold bg-white/90 hover:bg-white text-stone-700 border border-stone-300/80 shadow-xs transition flex items-center gap-1.5"
-            title="Cetak daftar foto"
-          >
-            <Printer size={13} />
-            <span>Cetak</span>
-          </button>
-
-          <button
-            type="button"
             onClick={handleOpenAdd}
-            className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-stone-900 to-stone-800 hover:from-stone-800 hover:to-stone-700 text-white shadow-xs transition flex items-center gap-1.5"
+            className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-stone-900 to-stone-800 hover:from-stone-800 hover:to-stone-700 text-white shadow-xs transition flex items-center gap-1.5 cursor-pointer"
           >
             <Plus size={13} />
             <span>Tambah Rombongan</span>

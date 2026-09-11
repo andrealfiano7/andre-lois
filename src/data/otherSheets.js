@@ -431,7 +431,7 @@ export const INITIAL_RUNDOWN = [
     "id": "rd-8",
     "time": "12:15 - 13:15",
     "duration": "60m",
-    "phase": "Siang / Adat",
+    "phase": "Pemberkatan",
     "activity": "Makan Siang Keluarga Inti & Pondokan (Gubukan)",
     "pic": "Family & Catering",
     "status": "Upcoming",
@@ -441,21 +441,21 @@ export const INITIAL_RUNDOWN = [
     "id": "rd-9",
     "time": "13:15 - 14:15",
     "duration": "60m",
-    "phase": "Siang / Adat",
-    "activity": "Tradisi Penyerahan Ulos & Doa Adat Kekeluargaan",
-    "pic": "Keluarga (Nama Pemberi Ulos)",
+    "phase": "Pemberkatan",
+    "activity": "Ramah Tamah & Doa Kekeluargaan",
+    "pic": "Keluarga Inti",
     "status": "Upcoming",
-    "note": "Mengikuti daftar tertib nama pemberi ulos dari tetua keluarga."
+    "note": "Ramah tamah dan doa bersama keluarga inti & keluarga besar."
   },
   {
     "id": "rd-10",
     "time": "14:15 - 15:30",
     "duration": "75m",
-    "phase": "Siang / Adat",
-    "activity": "Touch-up MUA, Retouch Gaun Resepsi & Power Nap Pengantin",
+    "phase": "Resepsi",
+    "activity": "Touch-up MUA, Retouch Gaun Resepsi & Persiapan Pengantin",
     "pic": "MUA & Bride",
     "status": "Upcoming",
-    "note": "Pengantin beristirahat sejenak di kamar pengantin sebelum resepsi malam."
+    "note": "Pengantin beristirahat sejenak dan bersiap sebelum resepsi malam."
   },
   {
     "id": "rd-11",
