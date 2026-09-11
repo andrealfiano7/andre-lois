@@ -488,21 +488,6 @@ export default function App() {
         {/* Module 1: Dashboard Overview */}
         {activeModule === 'dashboard' && (
           <div className="space-y-4 sm:space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2">
-              <div>
-                <h2 className="text-base sm:text-xl font-extrabold text-stone-900 tracking-tight">
-                  Ringkasan Operasional Persiapan
-                </h2>
-                <p className="text-[11px] sm:text-xs text-stone-500 mt-0.5">
-                  Pemantauan komprehensif seluruh 4 aspek persiapan pernikahan Andre &amp; Lois
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-stone-500">
-                <span>Pembaruan:</span>
-                <span className="font-bold text-stone-700">{lastSync}</span>
-              </div>
-            </div>
 
             <StatsOverview 
               stats={stats} 
