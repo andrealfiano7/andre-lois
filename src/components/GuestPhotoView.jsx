@@ -90,6 +90,32 @@ export function GuestPhotoView({ items, onChange }) {
     setIsModalOpen(true);
   };
 
+  const handleOpenAddForCategory = (sideTitle, catName) => {
+    setEditingItem(null);
+    const isAndre = sideTitle.includes('Andre');
+    setFormData({
+      side: isAndre ? 'Andre (Mempelai Pria)' : 'Lois Erin (Mempelai Wanita)',
+      category: catName,
+      name: '',
+      detail: '',
+      note: ''
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenAddForSide = (sideTitle) => {
+    setEditingItem(null);
+    const isAndre = sideTitle.includes('Andre');
+    setFormData({
+      side: isAndre ? 'Andre (Mempelai Pria)' : 'Lois Erin (Mempelai Wanita)',
+      category: 'Keluarga Besar',
+      name: '',
+      detail: '',
+      note: ''
+    });
+    setIsModalOpen(true);
+  };
+
   const handleOpenEdit = (item) => {
     setEditingItem(item);
     setFormData({
@@ -104,6 +130,7 @@ export function GuestPhotoView({ items, onChange }) {
 
   const handleDelete = (id) => {
     onChange(items.filter(item => item.id !== id));
+    fetch(`/api/photos?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
   };
 
   const handleSave = (e) => {
@@ -115,6 +142,7 @@ export function GuestPhotoView({ items, onChange }) {
     } else {
       const newItem = {
         id: `photo-${Date.now()}`,
+        status: 'Menunggu',
         ...formData
       };
       onChange([...items, newItem]);
@@ -305,6 +333,17 @@ export function GuestPhotoView({ items, onChange }) {
                       </p>
                     </div>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAddForSide(sideTitle)}
+                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 hover:text-stone-900 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+                    title={`Tambah rombongan baru untuk ${sideTitle}`}
+                  >
+                    <Plus size={13} className={isAndre ? 'text-sky-600' : 'text-rose-600'} />
+                    <span className="hidden sm:inline">Tambah Rombongan</span>
+                    <span className="sm:hidden">Tambah</span>
+                  </button>
                 </div>
 
                 {/* Categories inside this side */}
@@ -315,94 +354,125 @@ export function GuestPhotoView({ items, onChange }) {
                       className="nude-card rounded-2xl p-4 bg-white flex flex-col justify-between"
                     >
                       <div>
-                        {/* Category Header */}
+                        {/* Category Header with + Tambah Button */}
                         <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-stone-100">
-                          <div className="flex items-center gap-2">
-                            <span className="p-1 rounded-lg bg-stone-50 border border-stone-200/70">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="p-1 rounded-lg bg-stone-50 border border-stone-200/70 flex-shrink-0">
                               {getCategoryIcon(catName)}
                             </span>
-                            <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wider">
+                            <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wider truncate">
                               {catName}
                             </h4>
                           </div>
-                          <span className="text-[11px] font-semibold text-stone-400 tabular-nums">
-                            {list.length} sesi
-                          </span>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-[11px] font-semibold text-stone-400 tabular-nums">
+                              {list.length} sesi
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAddForCategory(sideTitle, catName)}
+                              className="px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200/90 text-amber-900 text-[11px] font-bold flex items-center gap-1 transition shadow-2xs cursor-pointer"
+                              title={`Tambah sesi foto di kategori ${catName}`}
+                              aria-label={`Tambah sesi foto di kategori ${catName}`}
+                            >
+                              <Plus size={12} className="text-amber-700 stroke-[2.5]" />
+                              <span>Tambah</span>
+                            </button>
+                          </div>
                         </div>
 
                         {/* List items */}
                         <div className="space-y-2">
-                          {list.map((item, idx) => {
-                            const isToConfirm = item.note?.toLowerCase().includes('confirm');
-                            const isAbsent = item.note?.toLowerCase().includes('tidak');
+                          {list.length === 0 ? (
+                            <div className="py-4 text-center text-xs text-stone-400 italic">
+                              Belum ada sesi di kategori ini.
+                            </div>
+                          ) : (
+                            list.map((item, idx) => {
+                              const isToConfirm = item.note?.toLowerCase().includes('confirm');
+                              const isAbsent = item.note?.toLowerCase().includes('tidak');
 
-                            return (
-                              <div
-                                key={item.id}
-                                className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 transition group ${
-                                  isAbsent 
-                                    ? 'bg-rose-50/40 border-rose-200 text-stone-400' 
-                                    : isToConfirm 
-                                    ? 'bg-amber-50/50 border-amber-200' 
-                                    : 'bg-stone-50/50 border-stone-200/80 hover:bg-stone-50'
-                                }`}
-                              >
-                                <div className="flex items-start gap-2.5 min-w-0">
-                                  <span className="w-5 h-5 rounded-md bg-stone-200/70 text-stone-600 flex items-center justify-center text-[10px] font-bold font-mono flex-shrink-0 mt-0.5">
-                                    {idx + 1}
-                                  </span>
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className={`text-xs font-bold ${
-                                        isAbsent ? 'line-through text-stone-400' : 'text-stone-900'
-                                      }`}>
-                                        {item.name}
-                                      </span>
-
-                                      {isToConfirm && (
-                                        <span className="inline-flex items-center gap-0.5 px-2 py-0.2 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                                          <AlertCircle size={10} /> {item.note}
+                              return (
+                                <div
+                                  key={item.id}
+                                  className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 transition group ${
+                                    isAbsent 
+                                      ? 'bg-rose-50/40 border-rose-200 text-stone-400' 
+                                      : isToConfirm 
+                                      ? 'bg-amber-50/50 border-amber-200' 
+                                      : 'bg-stone-50/50 border-stone-200/80 hover:bg-stone-50'
+                                  }`}
+                                >
+                                  <div className="flex items-start gap-2.5 min-w-0">
+                                    <span className="w-5 h-5 rounded-md bg-stone-200/70 text-stone-600 flex items-center justify-center text-[10px] font-bold font-mono flex-shrink-0 mt-0.5">
+                                      {idx + 1}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className={`text-xs font-bold ${
+                                          isAbsent ? 'line-through text-stone-400' : 'text-stone-900'
+                                        }`}>
+                                          {item.name}
                                         </span>
-                                      )}
 
-                                      {isAbsent && (
-                                        <span className="inline-flex items-center gap-0.5 px-2 py-0.2 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
-                                          <UserX size={10} /> {item.note}
-                                        </span>
+                                        {isToConfirm && (
+                                          <span className="inline-flex items-center gap-0.5 px-2 py-0.2 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                            <AlertCircle size={10} /> {item.note}
+                                          </span>
+                                        )}
+
+                                        {isAbsent && (
+                                          <span className="inline-flex items-center gap-0.5 px-2 py-0.2 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                                            <UserX size={10} /> {item.note}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {item.detail && (
+                                        <p className="text-[11px] text-stone-500 mt-0.5">
+                                          {item.detail}
+                                        </p>
                                       )}
                                     </div>
+                                  </div>
 
-                                    {item.detail && (
-                                      <p className="text-[11px] text-stone-500 mt-0.5">
-                                        {item.detail}
-                                      </p>
-                                    )}
+                                  <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 flex-shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEdit(item)}
+                                      className="p-1 rounded-lg text-stone-400 hover:text-stone-800 hover:bg-stone-200/60 cursor-pointer"
+                                      title="Edit"
+                                    >
+                                      <Edit3 size={13} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDelete(item.id)}
+                                      className="p-1 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
+                                      title="Hapus"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
                                   </div>
                                 </div>
-
-                                <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 flex-shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenEdit(item)}
-                                    className="p-1 rounded-lg text-stone-400 hover:text-stone-800 hover:bg-stone-200/60"
-                                    title="Edit"
-                                  >
-                                    <Edit3 size={13} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDelete(item.id)}
-                                    className="p-1 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50"
-                                    title="Hapus"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })
+                          )}
                         </div>
                       </div>
+
+                      {/* Card Bottom Quick Add Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAddForCategory(sideTitle, catName)}
+                        className="w-full mt-3 py-2 px-3 rounded-xl border border-dashed border-stone-300 hover:border-amber-500 bg-stone-50/50 hover:bg-gradient-to-r hover:from-amber-50/70 hover:to-orange-50/70 text-stone-600 hover:text-amber-950 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-2xs group/btn cursor-pointer"
+                        title={`Tambah sesi foto di kategori ${catName}`}
+                      >
+                        <div className="w-4 h-4 rounded-full bg-stone-200 group-hover/btn:bg-amber-600 group-hover/btn:text-white flex items-center justify-center transition-colors">
+                          <Plus size={11} className="stroke-[2.5]" />
+                        </div>
+                        <span>Tambah Sesi di {catName}</span>
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -420,12 +490,17 @@ export function GuestPhotoView({ items, onChange }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-rose-50">
-              <h3 className="text-sm font-bold text-stone-900">
-                {editingItem ? 'Edit Sesi Foto' : 'Tambah Sesi Foto Baru'}
+              <h3 className="text-sm font-bold text-stone-900 truncate pr-2">
+                {editingItem 
+                  ? 'Edit Sesi Foto' 
+                  : formData.category 
+                  ? `Tambah Sesi Foto — ${formData.category}` 
+                  : 'Tambah Sesi Foto Baru'}
               </h3>
               <button 
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-stone-400 hover:text-stone-700"
+                className="text-stone-400 hover:text-stone-700 cursor-pointer p-1"
               >
                 ✕
               </button>
@@ -439,7 +514,7 @@ export function GuestPhotoView({ items, onChange }) {
                 <select
                   value={formData.side}
                   onChange={(e) => setFormData({ ...formData, side: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs bg-white outline-none"
+                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs bg-white outline-none focus:border-amber-600"
                 >
                   <option value="Andre (Mempelai Pria)">Andre (Mempelai Pria)</option>
                   <option value="Lois Erin (Mempelai Wanita)">Lois Erin (Mempelai Wanita)</option>
@@ -454,8 +529,8 @@ export function GuestPhotoView({ items, onChange }) {
                   type="text"
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  placeholder="Contoh: Keluarga Inti, Keluarga Besar (Pihak Mama)..."
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none"
+                  placeholder="Contoh: Keluarga Inti, Keluarga Besar (Pihak Bapak)..."
+                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:border-amber-600"
                 />
               </div>
 
@@ -466,10 +541,11 @@ export function GuestPhotoView({ items, onChange }) {
                 <input
                   type="text"
                   required
+                  autoFocus
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Contoh: Kel. Tulang Ke-4 (Kel. Ferry Nainggolan)"
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none"
+                  placeholder="Contoh: Kel. Om / Tante Ke-2 (Kel. Bpk Nainggolan)"
+                  className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:border-amber-600"
                 />
               </div>
 
