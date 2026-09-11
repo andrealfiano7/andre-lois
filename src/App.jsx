@@ -339,9 +339,9 @@ export default function App() {
               <motion.div 
                 whileHover={{ scale: 1.06, rotate: 2 }} 
                 whileTap={{ scale: 0.94 }}
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white border border-[#EADBCE] p-1.5 flex items-center justify-center shadow-xs flex-shrink-0 cursor-pointer"
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl overflow-hidden flex items-center justify-center shadow-xs flex-shrink-0 cursor-pointer"
               >
-                <img src={logoImg} alt="Andre & Lois Monogram" className="w-full h-full object-contain block" />
+                <img src={logoImg} alt="Andre & Lois Monogram" className="w-full h-full object-contain block rounded-2xl" />
               </motion.div>
               <div className="min-w-0">
                 <h1 className="text-base sm:text-lg font-extrabold text-stone-900 tracking-tight truncate">
