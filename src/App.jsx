@@ -676,43 +676,10 @@ export default function App() {
         )}
       </main>
 
-      {/* Footer Branding & Operations Metadata */}
-      <footer className="mt-auto border-t border-[#EADBCE] bg-white py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-500">
-          <div>
-            <span className="font-bold text-stone-800">© 2026 Andre &amp; Lois.</span> All rights reserved.
-            <span className="mx-2 hidden sm:inline">·</span>
-            <span className="block sm:inline mt-0.5 sm:mt-0 font-medium">Wedding Dashboard</span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button 
-              onClick={handleExportJSON}
-              className="inline-flex items-center gap-1 text-stone-600 hover:text-amber-800 font-semibold transition"
-              title="Download backup lengkap"
-            >
-              <Download size={13} />
-              Backup JSON
-            </button>
-
-            <button 
-              onClick={resetToDefault}
-              className="inline-flex items-center gap-1 text-stone-600 hover:text-rose-800 font-semibold transition"
-              title="Kembalikan data ke awal template"
-            >
-              <RotateCcw size={13} />
-              Reset Template
-            </button>
-
-            <a 
-              href={GOOGLE_SHEET_URL} 
-              target="_blank" 
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-stone-700 hover:text-amber-900 font-bold underline transition"
-            >
-              Spreadsheet Sumber <ExternalLink size={12} />
-            </a>
-          </div>
+      {/* Footer Branding (Copyright Only) */}
+      <footer className="mt-auto border-t border-[#EADBCE] bg-white py-5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-stone-500">
+          <p className="font-medium">© 2026 Andre &amp; Lois. All rights reserved.</p>
         </div>
       </footer>
 
