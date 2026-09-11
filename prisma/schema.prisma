@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Task {
+  id            String   @id @default(uuid())
+  sheetNo       String?
+  category      String
+  title         String
+  pic           String
+  rawDate       String?
+  dueDate       String?
+  progress      Int      @default(0)
+  status        String   @default("Not yet Started")
+  vendorContact String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([category])
+  @@index([pic])
+}
+
+model GuestPhoto {
+  id        String   @id @default(uuid())
+  side      String?
+  category  String
+  name      String
+  detail    String?
+  status    String   @default("Menunggu")
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([category])
+}
+
+model RundownItem {
+  id        String   @id @default(uuid())
+  time      String
+  duration  String?
+  phase     String?
+  activity  String
+  pic       String
+  status    String   @default("Upcoming")
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phase])
+}

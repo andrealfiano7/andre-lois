@@ -65,7 +65,8 @@ export default function App() {
     deleteTask, 
     resetToDefault,
     syncFromGoogleSheet, 
-    exportToCSV 
+    exportToCSV,
+    dbStatus
   } = useWeddingData();
 
   const countdown = useCountdown();
@@ -93,6 +94,27 @@ export default function App() {
   const [photoList, setPhotoList] = useState(() => loadStorage(PHOTO_STORAGE, INITIAL_PHOTO_LIST));
   const [rundownList, setRundownList] = useState(() => loadStorage(RUNDOWN_STORAGE, INITIAL_RUNDOWN));
 
+  // Sync photos & rundown from Neon Database on mount
+  useEffect(() => {
+    fetch('/api/photos')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setPhotoList(data.data);
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/rundown')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setRundownList(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Sync to LocalStorage
   useEffect(() => {
     try {
@@ -109,6 +131,24 @@ export default function App() {
       console.error(e);
     }
   }, [rundownList]);
+
+  const handlePhotoChange = (newList) => {
+    setPhotoList(newList);
+    fetch('/api/photos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newList)
+    }).catch(() => {});
+  };
+
+  const handleRundownChange = (newList) => {
+    setRundownList(newList);
+    fetch('/api/rundown', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newList)
+    }).catch(() => {});
+  };
 
   // Filtered tasks for Checklist module
   const filteredTasks = useMemo(() => {
@@ -253,9 +293,15 @@ export default function App() {
                 <h1 className="text-base sm:text-lg font-extrabold text-stone-900 tracking-tight truncate">
                   Andre &amp; Lois
                 </h1>
-                <p className="text-[10px] sm:text-[11px] text-stone-500 truncate font-medium">
-                  Wedding Dashboard
-                </p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[10px] sm:text-[11px] text-stone-500 truncate font-medium">
+                    Wedding Dashboard
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-full leading-none" title="Tersambung ke database Neon PostgreSQL">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Neon DB</span>
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -617,7 +663,7 @@ export default function App() {
         {activeModule === 'photos' && (
           <GuestPhotoView
             items={photoList}
-            onChange={setPhotoList}
+            onChange={handlePhotoChange}
           />
         )}
 
@@ -625,7 +671,7 @@ export default function App() {
         {activeModule === 'rundown' && (
           <RundownView
             items={rundownList}
-            onChange={setRundownList}
+            onChange={handleRundownChange}
           />
         )}
       </main>

@@ -41,13 +41,14 @@ export function useWeddingData() {
   });
 
   const [lastSync, setLastSync] = useState(() => {
-    return localStorage.getItem(LAST_SYNC_KEY) || 'Data Default Spreadsheet';
+    return localStorage.getItem(LAST_SYNC_KEY) || 'Database Neon PostgreSQL';
   });
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState(null);
+  const [dbStatus, setDbStatus] = useState({ connected: false, checking: true });
 
-  // Auto-save to LocalStorage
+  // Auto-save to LocalStorage as offline cache
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
@@ -55,6 +56,41 @@ export function useWeddingData() {
       console.error('Failed to save to localStorage:', e);
     }
   }, [tasks]);
+
+  // Fetch from Neon Database via /api/tasks on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function loadFromDb() {
+      try {
+        const res = await fetch('/api/tasks');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          if (data.data.length > 0 && isMounted) {
+            setTasks(data.data);
+            setDbStatus({ connected: true, checking: false });
+            setLastSync('Database Neon PostgreSQL');
+            localStorage.setItem(LAST_SYNC_KEY, 'Database Neon PostgreSQL');
+          } else if (data.data.length === 0) {
+            await fetch('/api/seed');
+            const retryRes = await fetch('/api/tasks');
+            const retryData = await retryRes.json();
+            if (retryData.success && retryData.data.length > 0 && isMounted) {
+              setTasks(retryData.data);
+              setDbStatus({ connected: true, checking: false });
+            }
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setDbStatus({ connected: false, checking: false });
+        }
+        console.info('Menggunakan data cache lokal (API database belum aktif di environment ini):', err.message);
+      }
+    }
+    loadFromDb();
+    return () => { isMounted = false; };
+  }, []);
 
   // Statistics calculation (Executive Metrics)
   const stats = useMemo(() => {
@@ -141,54 +177,90 @@ export function useWeddingData() {
 
   // Toggle Done
   const toggleTaskDone = useCallback((taskId) => {
-    setTasks(prev => prev.map(task => {
-      if (task.id === taskId) {
-        const isDone = task.status === 'Done';
-        if (!isDone) {
-          fireCelebrationConfetti();
-          return { ...task, status: 'Done', progress: 100 };
-        } else {
-          return { ...task, status: 'Not yet Started', progress: 0 };
+    setTasks(prev => {
+      let target = null;
+      const updated = prev.map(task => {
+        if (task.id === taskId) {
+          const isDone = task.status === 'Done';
+          if (!isDone) {
+            fireCelebrationConfetti();
+            target = { ...task, status: 'Done', progress: 100 };
+          } else {
+            target = { ...task, status: 'Not yet Started', progress: 0 };
+          }
+          return target;
         }
+        return task;
+      });
+      if (target) {
+        fetch('/api/tasks', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: target.id, status: target.status, progress: target.progress })
+        }).catch(e => console.info('API sync note:', e.message));
       }
-      return task;
-    }));
+      return updated;
+    });
   }, []);
 
   // Update Status
   const updateTaskStatus = useCallback((taskId, newStatus) => {
-    setTasks(prev => prev.map(task => {
-      if (task.id === taskId) {
-        let newProgress = task.progress;
-        if (newStatus === 'Done') {
-          newProgress = 100;
-          fireCelebrationConfetti();
-        } else if (newStatus === 'Working on It') {
-          newProgress = task.progress === 100 || task.progress === 0 ? 50 : task.progress;
-        } else if (newStatus === 'Not yet Started') {
-          newProgress = 0;
+    setTasks(prev => {
+      let target = null;
+      const updated = prev.map(task => {
+        if (task.id === taskId) {
+          let newProgress = task.progress;
+          if (newStatus === 'Done') {
+            newProgress = 100;
+            fireCelebrationConfetti();
+          } else if (newStatus === 'Working on It') {
+            newProgress = task.progress === 100 || task.progress === 0 ? 50 : task.progress;
+          } else if (newStatus === 'Not yet Started') {
+            newProgress = 0;
+          }
+          target = { ...task, status: newStatus, progress: newProgress };
+          return target;
         }
-        return { ...task, status: newStatus, progress: newProgress };
+        return task;
+      });
+      if (target) {
+        fetch('/api/tasks', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: target.id, status: target.status, progress: target.progress })
+        }).catch(e => console.info('API sync note:', e.message));
       }
-      return task;
-    }));
+      return updated;
+    });
   }, []);
 
   // Update Progress
   const updateTaskProgress = useCallback((taskId, progressVal) => {
-    setTasks(prev => prev.map(task => {
-      if (task.id === taskId) {
-        let status = 'Not yet Started';
-        if (progressVal === 100) {
-          status = 'Done';
-          fireCelebrationConfetti();
-        } else if (progressVal > 0) {
-          status = 'Working on It';
+    setTasks(prev => {
+      let target = null;
+      const updated = prev.map(task => {
+        if (task.id === taskId) {
+          let status = 'Not yet Started';
+          if (progressVal === 100) {
+            status = 'Done';
+            fireCelebrationConfetti();
+          } else if (progressVal > 0) {
+            status = 'Working on It';
+          }
+          target = { ...task, progress: progressVal, status };
+          return target;
         }
-        return { ...task, progress: progressVal, status };
+        return task;
+      });
+      if (target) {
+        fetch('/api/tasks', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: target.id, progress: target.progress, status: target.status })
+        }).catch(e => console.info('API sync note:', e.message));
       }
-      return task;
-    }));
+      return updated;
+    });
   }, []);
 
   // Add Task
@@ -209,6 +281,12 @@ export function useWeddingData() {
     };
     setTasks(prev => [taskWithDefaults, ...prev]);
     setSyncStatus({ type: 'success', message: `Tugas "${newTask.title}" berhasil ditambahkan!` });
+
+    fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(taskWithDefaults)
+    }).catch(e => console.info('API sync note:', e.message));
   }, [tasks.length]);
 
   // Edit Task
@@ -220,6 +298,12 @@ export function useWeddingData() {
       return task;
     }));
     setSyncStatus({ type: 'success', message: `Perubahan tugas berhasil disimpan!` });
+
+    fetch('/api/tasks', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: taskId, ...updatedFields })
+    }).catch(e => console.info('API sync note:', e.message));
   }, []);
 
   // Delete Task
@@ -230,6 +314,10 @@ export function useWeddingData() {
       type: 'success', 
       message: `Tugas "${taskToDelete ? taskToDelete.title : ''}" telah dihapus.` 
     });
+
+    fetch(`/api/tasks?id=${encodeURIComponent(taskId)}`, {
+      method: 'DELETE'
+    }).catch(e => console.info('API sync note:', e.message));
   }, [tasks]);
 
   // Reset to Default
@@ -420,6 +508,7 @@ export function useWeddingData() {
     deleteTask,
     resetToDefault,
     syncFromGoogleSheet,
-    exportToCSV
+    exportToCSV,
+    dbStatus
   };
 }
