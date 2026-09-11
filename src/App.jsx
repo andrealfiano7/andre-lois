@@ -484,7 +484,7 @@ export default function App() {
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-6 flex-1 space-y-4 sm:space-y-6">
+      <main className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-6 flex-1 space-y-3 sm:space-y-6">
         {/* Module 1: Dashboard Overview */}
         {activeModule === 'dashboard' && (
           <div className="space-y-4 sm:space-y-6">
@@ -556,32 +556,30 @@ export default function App() {
 
         {/* Module 2: Wedding Checklist */}
         {activeModule === 'checklist' && (
-          <div className="space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg sm:text-xl font-extrabold text-stone-900 tracking-tight">
-                    Wedding Checklist &amp; Timeline
+          <div className="space-y-3 sm:space-y-5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h2 className="text-base sm:text-xl font-extrabold text-stone-900 tracking-tight">
+                    Wedding Checklist
                   </h2>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-xs">
-                    48 Tugas
+                  <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-2xs">
+                    {tasks.length} Tugas
                   </span>
                 </div>
-                <p className="text-xs text-stone-500 mt-1">
-                  {stats.completed} dari {stats.total} tugas selesai ({stats.overallProgress}%) · 4 kategori persiapan operasional
+                <p className="text-[11px] sm:text-xs text-stone-500 mt-0.5">
+                  {stats.completed}/{stats.total} selesai ({stats.overallProgress}%) · 4 kategori
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={openAddModal}
-                  className="px-4 py-2 rounded-2xl text-xs font-bold bg-gradient-to-r from-stone-900 to-stone-800 hover:from-amber-700 hover:to-rose-700 text-white transition flex items-center gap-1.5 shadow-xs"
-                >
-                  <Plus size={14} />
-                  Tambah Tugas
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={openAddModal}
+                className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-stone-900 to-stone-800 hover:from-amber-700 hover:to-rose-700 text-white transition flex items-center gap-1 shadow-xs shrink-0 cursor-pointer"
+              >
+                <Plus size={14} />
+                <span>Tambah</span>
+              </button>
             </div>
 
             {/* View Switcher: Table, Kanban, Timeline, PIC */}

@@ -11,8 +11,8 @@ export function ViewSwitcher({ activeView, onViewChange, counts }) {
   ];
 
   return (
-    <div className="w-full flex items-center justify-between border-b border-stone-200/80 pb-3 pt-1">
-      <div className="grid grid-cols-2 gap-1.5 p-1.5 bg-stone-100/90 rounded-2xl border border-stone-200/80 w-full sm:flex sm:w-auto sm:p-1 no-scrollbar">
+    <div className="w-full">
+      <div className="grid grid-cols-2 gap-1 p-1 bg-stone-100/90 rounded-2xl border border-stone-200/80 w-full sm:flex sm:w-auto sm:gap-1.5 no-scrollbar">
         {views.map(view => {
           const Icon = view.icon;
           const isActive = activeView === view.id;
