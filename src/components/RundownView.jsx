@@ -432,223 +432,210 @@ export function RundownView({ items, onChange }) {
         )}
       </div>
 
-      {/* Clean Modal Add/Edit Rundown with Smart Time Picker (No Status) */}
+      {/* Clean Modal Add/Edit Rundown with Smart Time Picker (Mobile Optimized) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/40 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/40 backdrop-blur-xs animate-in fade-in">
           <div 
-            className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-stone-200 overflow-hidden"
+            className="w-full max-w-md max-h-[92vh] sm:max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-stone-200 flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-rose-50">
+            <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-stone-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-rose-50 flex-shrink-0">
               <div>
-                <h3 className="text-base font-bold text-stone-900">
+                <h3 className="text-sm sm:text-base font-bold text-stone-900">
                   {editingItem ? 'Edit Agenda Rundown' : 'Tambah Agenda Rundown Baru'}
                 </h3>
-                <p className="text-xs text-stone-500 mt-0.5">
+                <p className="text-[11px] sm:text-xs text-stone-500 mt-0.5">
                   Atur jadwal waktu kegiatan hari-H
                 </p>
               </div>
               <button 
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-700"
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-6 space-y-4 text-xs">
-              {/* Time Pickers (Format 24 Jam: Jam Mulai & Jam Selesai) */}
-              <div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1.5 flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Clock size={12} className="text-amber-600" />
-                        <span>Jam Mulai (24 Jam)</span> <span className="text-rose-500">*</span>
-                      </span>
-                      <span className="text-[9px] font-bold text-amber-900 bg-amber-100/80 px-1.5 py-0.2 rounded-full">
-                        24 Jam (WIB)
-                      </span>
-                    </label>
-                    <div className="grid grid-cols-2 gap-1.5 bg-stone-50 p-1.5 rounded-2xl border border-stone-200">
-                      <div>
-                        <span className="block text-[9px] font-semibold text-stone-400 text-center mb-0.5">Jam (00-23)</span>
-                        <select
-                          value={startTime.split(':')[0] || '08'}
-                          onChange={(e) => {
-                            const m = startTime.split(':')[1] || '00';
-                            handleStartTimeChange(`${e.target.value.padStart(2, '0')}:${m}`);
-                          }}
-                          className="w-full px-2 py-2 rounded-xl border border-stone-300 text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
-                        >
-                          {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
-                            <option key={h} value={h}>{h}</option>
-                          ))}
-                        </select>
+            <form onSubmit={handleSave} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              {/* Scrollable Form Body */}
+              <div className="p-4 sm:p-5 space-y-3 sm:space-y-3.5 text-xs overflow-y-auto flex-1 overscroll-contain">
+                {/* Time Pickers: Jam Mulai & Jam Selesai */}
+                <div>
+                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                    <div>
+                      <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1 flex items-center gap-1">
+                        <Clock size={11} className="text-amber-600" />
+                        <span>Jam Mulai</span> <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-1 bg-stone-50 p-1 sm:p-1.5 rounded-xl border border-stone-200">
+                        <div>
+                          <select
+                            value={startTime.split(':')[0] || '08'}
+                            onChange={(e) => {
+                              const m = startTime.split(':')[1] || '00';
+                              handleStartTimeChange(`${e.target.value.padStart(2, '0')}:${m}`);
+                            }}
+                            className="w-full px-1.5 py-1.5 rounded-lg border border-stone-300 text-xs sm:text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
+                          >
+                            {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
+                              <option key={h} value={h}>{h}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <select
+                            value={startTime.split(':')[1] || '00'}
+                            onChange={(e) => {
+                              const h = startTime.split(':')[0] || '08';
+                              handleStartTimeChange(`${h}:${e.target.value.padStart(2, '0')}`);
+                            }}
+                            className="w-full px-1.5 py-1.5 rounded-lg border border-stone-300 text-xs sm:text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
+                          >
+                            {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
-                      <div>
-                        <span className="block text-[9px] font-semibold text-stone-400 text-center mb-0.5">Menit</span>
-                        <select
-                          value={startTime.split(':')[1] || '00'}
-                          onChange={(e) => {
-                            const h = startTime.split(':')[0] || '08';
-                            handleStartTimeChange(`${h}:${e.target.value.padStart(2, '0')}`);
-                          }}
-                          className="w-full px-2 py-2 rounded-xl border border-stone-300 text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
-                        >
-                          {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
-                        </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1 flex items-center gap-1">
+                        <Clock size={11} className="text-amber-600" />
+                        <span>Jam Selesai</span> <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-1 bg-stone-50 p-1 sm:p-1.5 rounded-xl border border-stone-200">
+                        <div>
+                          <select
+                            value={endTime.split(':')[0] || '09'}
+                            onChange={(e) => {
+                              const m = endTime.split(':')[1] || '00';
+                              handleEndTimeChange(`${e.target.value.padStart(2, '0')}:${m}`);
+                            }}
+                            className="w-full px-1.5 py-1.5 rounded-lg border border-stone-300 text-xs sm:text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
+                          >
+                            {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
+                              <option key={h} value={h}>{h}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <select
+                            value={endTime.split(':')[1] || '00'}
+                            onChange={(e) => {
+                              const h = endTime.split(':')[0] || '09';
+                              handleEndTimeChange(`${h}:${e.target.value.padStart(2, '0')}`);
+                            }}
+                            className="w-full px-1.5 py-1.5 rounded-lg border border-stone-300 text-xs sm:text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
+                          >
+                            {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1.5 flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Clock size={12} className="text-amber-600" />
-                        <span>Jam Selesai (24 Jam)</span> <span className="text-rose-500">*</span>
+                  {/* Quick Duration Buttons & Calculated Duration */}
+                  <div className="mt-2 p-2 rounded-xl bg-amber-50/60 border border-amber-200/70 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span className="text-stone-500 font-medium text-[11px]">Estimasi:</span>
+                      <span className="font-extrabold text-amber-900 text-xs tabular-nums">
+                        {customDuration || '60m'}
                       </span>
-                      <span className="text-[9px] font-bold text-amber-900 bg-amber-100/80 px-1.5 py-0.2 rounded-full">
-                        24 Jam (WIB)
-                      </span>
-                    </label>
-                    <div className="grid grid-cols-2 gap-1.5 bg-stone-50 p-1.5 rounded-2xl border border-stone-200">
-                      <div>
-                        <span className="block text-[9px] font-semibold text-stone-400 text-center mb-0.5">Jam (00-23)</span>
-                        <select
-                          value={endTime.split(':')[0] || '09'}
-                          onChange={(e) => {
-                            const m = endTime.split(':')[1] || '00';
-                            handleEndTimeChange(`${e.target.value.padStart(2, '0')}:${m}`);
-                          }}
-                          className="w-full px-2 py-2 rounded-xl border border-stone-300 text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
+                    </div>
+
+                    {/* Quick Preset Buttons */}
+                    <div className="flex items-center gap-1 overflow-x-auto">
+                      {[15, 30, 45, 60, 90, 120].map(mins => (
+                        <button
+                          key={mins}
+                          type="button"
+                          onClick={() => handleQuickAddDuration(mins)}
+                          className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-white text-stone-700 border border-stone-200 hover:border-amber-400 hover:text-amber-800 transition shadow-xs whitespace-nowrap cursor-pointer"
                         >
-                          {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
-                            <option key={h} value={h}>{h}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <span className="block text-[9px] font-semibold text-stone-400 text-center mb-0.5">Menit</span>
-                        <select
-                          value={endTime.split(':')[1] || '00'}
-                          onChange={(e) => {
-                            const h = endTime.split(':')[0] || '09';
-                            handleEndTimeChange(`${h}:${e.target.value.padStart(2, '0')}`);
-                          }}
-                          className="w-full px-2 py-2 rounded-xl border border-stone-300 text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
-                        >
-                          {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
-                        </select>
-                      </div>
+                          +{mins}m
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
 
-                {/* Quick Duration Buttons & Calculated Duration */}
-                <div className="mt-2.5 p-2.5 rounded-2xl bg-amber-50/60 border border-amber-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <span className="text-stone-500 font-medium">Estimasi:</span>
-                    <span className="font-extrabold text-amber-900 tabular-nums">
-                      {customDuration || '60m'}
-                    </span>
-                    <span className="text-[11px] text-amber-800 font-mono font-bold">
-                      ({startTime} - {endTime} WIB)
-                    </span>
-                  </div>
-
-                  {/* Quick Preset Buttons */}
-                  <div className="flex items-center gap-1 overflow-x-auto">
-                    {[15, 30, 45, 60, 90, 120].map(mins => (
-                      <button
-                        key={mins}
-                        type="button"
-                        onClick={() => handleQuickAddDuration(mins)}
-                        className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white text-stone-700 border border-stone-200 hover:border-amber-400 hover:text-amber-800 transition shadow-xs whitespace-nowrap cursor-pointer"
-                      >
-                        +{mins}m
-                      </button>
+                {/* Fase Acara */}
+                <div>
+                  <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
+                    Fase Acara
+                  </label>
+                  <select
+                    value={phase}
+                    onChange={(e) => setPhase(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs bg-white outline-none focus:border-amber-600 cursor-pointer"
+                  >
+                    {PHASES.filter(p => p !== 'Semua').map(p => (
+                      <option key={p} value={p}>{p}</option>
                     ))}
-                  </div>
+                  </select>
+                </div>
+
+                {/* Nama Kegiatan */}
+                <div>
+                  <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
+                    Nama Kegiatan / Agenda <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={activity}
+                    onChange={(e) => setActivity(e.target.value)}
+                    placeholder="Contoh: Ibadah Pemberkatan Nikah Kudus..."
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:border-amber-600"
+                  />
+                </div>
+
+                {/* PIC */}
+                <div>
+                  <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
+                    PIC / Penanggung Jawab
+                  </label>
+                  <input
+                    type="text"
+                    value={pic}
+                    onChange={(e) => setPic(e.target.value)}
+                    placeholder="Contoh: WO & Planner, Tim Altar..."
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:border-amber-600"
+                  />
+                </div>
+
+                {/* Keterangan & Catatan Teknis */}
+                <div>
+                  <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
+                    Keterangan &amp; Catatan Teknis
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Lokasi, perlengkapan, briefing khusus..."
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:border-amber-600 resize-none"
+                  />
                 </div>
               </div>
 
-              {/* Fase Acara */}
-              <div>
-                <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1.5">
-                  Fase Acara
-                </label>
-                <select
-                  value={phase}
-                  onChange={(e) => setPhase(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-300 text-xs bg-white outline-none focus:border-amber-600 cursor-pointer"
-                >
-                  {PHASES.filter(p => p !== 'Semua').map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Nama Kegiatan */}
-              <div>
-                <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1.5">
-                  Nama Kegiatan / Agenda <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={activity}
-                  onChange={(e) => setActivity(e.target.value)}
-                  placeholder="Contoh: Ibadah Pemberkatan Nikah Kudus..."
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-300 text-xs outline-none focus:border-amber-600"
-                />
-              </div>
-
-              {/* PIC (No status field anymore!) */}
-              <div>
-                <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1.5">
-                  PIC / Penanggung Jawab
-                </label>
-                <input
-                  type="text"
-                  value={pic}
-                  onChange={(e) => setPic(e.target.value)}
-                  placeholder="Contoh: WO & Planner, Tim Altar..."
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-300 text-xs outline-none focus:border-amber-600"
-                />
-              </div>
-
-              {/* Keterangan & Catatan Teknis */}
-              <div>
-                <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1.5">
-                  Keterangan &amp; Catatan Teknis
-                </label>
-                <textarea
-                  rows={2}
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Lokasi, perlengkapan, briefing khusus..."
-                  className="w-full px-3.5 py-2.5 rounded-2xl border border-stone-300 text-xs outline-none focus:border-amber-600 resize-none"
-                />
-              </div>
-
-              {/* Modal Actions */}
-              <div className="pt-3 border-t border-stone-100 flex items-center justify-end gap-2">
+              {/* Pinned Modal Actions Footer */}
+              <div className="px-4 py-2.5 sm:py-3 sm:px-5 border-t border-stone-100 bg-stone-50/90 flex items-center justify-end gap-2 flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 font-semibold"
+                  className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-200/60 font-semibold transition text-xs cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 text-white font-bold hover:from-amber-700 hover:to-rose-700 shadow-xs transition"
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 text-white font-bold hover:from-amber-700 hover:to-rose-700 shadow-xs transition text-xs cursor-pointer"
                 >
                   Simpan Agenda
                 </button>
