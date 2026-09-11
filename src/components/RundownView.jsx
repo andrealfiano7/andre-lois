@@ -95,7 +95,7 @@ function addMinutes(timeStr, minsToAdd) {
   return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
 }
 
-export function RundownView({ items, onChange }) {
+export function RundownView({ items = [], onChange }) {
   const [selectedPhase, setSelectedPhase] = useState('Semua');
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -111,20 +111,21 @@ export function RundownView({ items, onChange }) {
   const [note, setNote] = useState('');
 
   // Normalize items to ensure no legacy 'Siang / Adat' remains and time is 24-hour
+  const safeItems = Array.isArray(items) ? items : [];
   const normalizedItems = useMemo(() => {
-    return items.map(item => {
-      let currentPhase = item.phase;
+    return safeItems.map(item => {
+      let currentPhase = item?.phase;
       if (!currentPhase || currentPhase === 'Siang / Adat' || currentPhase.includes('Adat')) {
-        const startH = parseInt(item.time?.split(':')[0] || '12', 10);
+        const startH = parseInt(item?.time?.split(':')[0] || '12', 10);
         currentPhase = startH < 14 ? 'Pemberkatan' : 'Resepsi';
       }
       return {
         ...item,
         phase: currentPhase,
-        time: formatRangeTo24Hour(item.time)
+        time: formatRangeTo24Hour(item?.time)
       };
     });
-  }, [items]);
+  }, [safeItems]);
 
   // Stats calculation (Clean operational metrics, no status)
   const stats = useMemo(() => {

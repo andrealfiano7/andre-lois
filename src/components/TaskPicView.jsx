@@ -12,7 +12,9 @@ import {
 } from 'lucide-react';
 import { PICS, CATEGORIES } from '../data/initialTasks';
 
-export function TaskPicView({ tasks, onToggleDone, onEditTask }) {
+export function TaskPicView({ tasks = [], onToggleDone, onEditTask }) {
+  const safeTasks = Array.isArray(tasks) ? tasks : [];
+
   const getCategoryMeta = (catId) => {
     return CATEGORIES.find(c => c.id === catId) || {
       label: catId,
@@ -32,7 +34,7 @@ export function TaskPicView({ tasks, onToggleDone, onEditTask }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {PICS.map(pic => {
-        const picTasks = tasks.filter(t => t.pic === pic.id);
+        const picTasks = safeTasks.filter(t => t.pic === pic.id);
         const completed = picTasks.filter(t => t.status === 'Done').length;
         const total = picTasks.length;
         const percent = total > 0 ? Math.round((completed / total) * 100) : 0;

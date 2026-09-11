@@ -10,15 +10,17 @@ import {
 } from 'lucide-react';
 import { CATEGORIES, PICS } from '../data/initialTasks';
 
-export function TaskTimelineView({ tasks, onToggleDone, onEditTask }) {
+export function TaskTimelineView({ tasks = [], onToggleDone, onEditTask }) {
+  const safeTasks = Array.isArray(tasks) ? tasks : [];
+
   // Sort tasks by due date
   const sortedTasks = useMemo(() => {
-    return [...tasks].sort((a, b) => {
+    return [...safeTasks].sort((a, b) => {
       const dateA = a.dueDate || a.rawDate || '9999-99-99';
       const dateB = b.dueDate || b.rawDate || '9999-99-99';
       return dateA.localeCompare(dateB);
     });
-  }, [tasks]);
+  }, [safeTasks]);
 
   // Group by month
   const groupedTasks = useMemo(() => {

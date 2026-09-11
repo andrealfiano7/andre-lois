@@ -21,7 +21,7 @@ import { motion } from 'framer-motion';
 import { CATEGORIES, PICS, STATUS_TYPES } from '../data/initialTasks';
 
 export function TaskTableView({ 
-  tasks, 
+  tasks = [], 
   onToggleDone, 
   onUpdateProgress, 
   onUpdateStatus, 
@@ -81,7 +81,7 @@ export function TaskTableView({
     }
   };
 
-  if (tasks.length === 0) {
+  if (!tasks || tasks.length === 0) {
     return (
       <div className="nude-card rounded-3xl p-12 text-center my-6 bg-white shadow-nude-soft">
         <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3 text-lg font-bold">

@@ -11,7 +11,7 @@ import {
   Plus, 
   ArrowRight
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import logoImg from './assets/logo.png';
 import { useWeddingData } from './hooks/useWeddingData';
 import { useCountdown } from './hooks/useCountdown';
@@ -28,6 +28,7 @@ import { CountdownModal } from './components/CountdownModal';
 import { SyncNotification } from './components/SyncNotification';
 import { GuestPhotoView } from './components/GuestPhotoView';
 import { RundownView } from './components/RundownView';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const PHOTO_STORAGE = 'wedding_photo_list_v4_clean';
 const RUNDOWN_STORAGE = 'wedding_rundown_v5_live';
@@ -35,7 +36,9 @@ const RUNDOWN_STORAGE = 'wedding_rundown_v5_live';
 const loadStorage = (key, fallback) => {
   try {
     const item = localStorage.getItem(key);
-    return item ? JSON.parse(item) : fallback;
+    if (!item) return fallback;
+    const parsed = JSON.parse(item);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : fallback;
   } catch {
     return fallback;
   }
@@ -144,7 +147,17 @@ export default function App() {
       if (e.key === RUNDOWN_STORAGE && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
-          setRundownList(parsed);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setRundownList(parsed);
+          }
+        } catch {}
+      }
+      if (e.key === PHOTO_STORAGE && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setPhotoList(parsed);
+          }
         } catch {}
       }
     };
@@ -435,17 +448,10 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Content Area with Smooth Page Crossfade Transitions */}
+      {/* Main Content Area: Instant 0ms Tab Switching with Hardware Accelerated Fade */}
       <main className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-6 flex-1 space-y-3 sm:space-y-6 pb-28 sm:pb-24 lg:pb-8">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeModule}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full"
-          >
+        <ErrorBoundary onReset={() => setActiveModule('dashboard')} onGoHome={() => setActiveModule('dashboard')}>
+          <div key={activeModule} className="w-full animate-fade-in">
         {/* Module 1: Dashboard Overview */}
         {activeModule === 'dashboard' && (
           <div className="space-y-4 sm:space-y-6">
@@ -613,8 +619,8 @@ export default function App() {
             onChange={handleRundownChange}
           />
         )}
-          </motion.div>
-        </AnimatePresence>
+          </div>
+        </ErrorBoundary>
       </main>
 
       {/* Footer Branding (Copyright Only) */}

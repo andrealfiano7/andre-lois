@@ -2,14 +2,14 @@ import React from 'react';
 import { LayoutList, CalendarDays, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export function ViewSwitcher({ activeView, onViewChange, counts }) {
+export function ViewSwitcher({ activeView, onViewChange, counts = {} }) {
   const views = [
     { 
       id: 'table', 
       label: 'Tabel & Checklist', 
       shortLabel: 'Checklist',
       icon: LayoutList, 
-      count: counts.filtered, 
+      count: counts?.filtered ?? 0, 
       iconColor: 'text-amber-600' 
     },
     { 

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export function GuestPhotoView({ items, onChange }) {
+export function GuestPhotoView({ items = [], onChange }) {
   const [selectedSide, setSelectedSide] = useState('Semua');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingItem, setEditingItem] = useState(null);
@@ -35,23 +35,25 @@ export function GuestPhotoView({ items, onChange }) {
     note: ''
   });
 
+  const safeItems = Array.isArray(items) ? items : [];
+
   // Filter items
   const filteredItems = useMemo(() => {
-    return items.filter(item => {
-      const matchSide = selectedSide === 'Semua' || item.side.toLowerCase().includes(selectedSide.toLowerCase());
+    return safeItems.filter(item => {
+      const matchSide = selectedSide === 'Semua' || (item?.side && item.side.toLowerCase().includes(selectedSide.toLowerCase()));
       const q = searchQuery.toLowerCase().trim();
-      const matchQuery = !q || [item.name, item.detail, item.category, item.note, item.side].some(v => v?.toLowerCase().includes(q));
+      const matchQuery = !q || [item?.name, item?.detail, item?.category, item?.note, item?.side].some(v => v?.toLowerCase().includes(q));
       return matchSide && matchQuery;
     });
-  }, [items, selectedSide, searchQuery]);
+  }, [safeItems, selectedSide, searchQuery]);
 
   // Group items by Side and Category for structured hierarchical display
   const groupedData = useMemo(() => {
     const groups = {};
     filteredItems.forEach(item => {
-      const sideKey = item.side.includes('Andre') ? 'Pihak Andre (Mempelai Pria)' : 'Pihak Lois Erin (Mempelai Wanita)';
+      const sideKey = item?.side?.includes('Andre') ? 'Pihak Andre (Mempelai Pria)' : 'Pihak Lois Erin (Mempelai Wanita)';
       if (!groups[sideKey]) groups[sideKey] = {};
-      const catKey = item.category || 'Lainnya';
+      const catKey = item?.category || 'Lainnya';
       if (!groups[sideKey][catKey]) groups[sideKey][catKey] = [];
       groups[sideKey][catKey].push(item);
     });
@@ -60,11 +62,11 @@ export function GuestPhotoView({ items, onChange }) {
 
   // Stats calculation
   const stats = useMemo(() => {
-    const total = items.length;
-    const andreCount = items.filter(i => i.side.includes('Andre')).length;
-    const loisCount = items.filter(i => i.side.includes('Lois')).length;
-    const toConfirm = items.filter(i => i.note?.toLowerCase().includes('confirm')).length;
-    const tidakHadir = items.filter(i => i.note?.toLowerCase().includes('tidak')).length;
+    const total = safeItems.length;
+    const andreCount = safeItems.filter(i => i?.side?.includes('Andre')).length;
+    const loisCount = safeItems.filter(i => i?.side?.includes('Lois')).length;
+    const toConfirm = safeItems.filter(i => i?.note?.toLowerCase().includes('confirm')).length;
+    const tidakHadir = safeItems.filter(i => i?.note?.toLowerCase().includes('tidak')).length;
     return { total, andreCount, loisCount, toConfirm, tidakHadir };
   }, [items]);
 
