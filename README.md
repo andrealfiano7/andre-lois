@@ -1,4 +1,4 @@
-﻿# 💍 Wedding Dashboard — Andre & Lois
+# 💍 Wedding Dashboard — Andre & Lois
 
 Modern, elegant, and responsive Web Dashboard for Wedding Operations & Checklist Management.
 
@@ -48,17 +48,17 @@ Modern, elegant, and responsive Web Dashboard for Wedding Operations & Checklist
 
 ### Instalasi & Menjalankan Lokal
 
-`ash
+```bash
 # Clone repository
-git clone https://github.com/andrealfiano7/dashboard.git
-cd dashboard
+git clone https://github.com/andrealfiano7/andre-lois.git
+cd andre-lois
 
 # Install dependencies
 npm install
 
 # Jalankan server development
 npm run dev
-`
+```
 
 Server development akan aktif di http://localhost:5173/.
 
