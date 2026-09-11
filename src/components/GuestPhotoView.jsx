@@ -184,9 +184,6 @@ export function GuestPhotoView({ items, onChange }) {
               <h2 className="text-base sm:text-xl font-bold text-stone-900 tracking-tight">
                 Daftar Sesi Foto Tamu &amp; Keluarga
               </h2>
-              <p className="text-[11px] sm:text-xs text-stone-600 mt-0.5">
-                Panduan urutan sesi foto panggung resepsi pernikahan Andre &amp; Lois Erin
-              </p>
             </div>
           </div>
         </div>

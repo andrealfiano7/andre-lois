@@ -25,7 +25,7 @@ export const CATEGORIES = [
   },
   { 
     id: 'C. Internal Preparation', 
-    label: 'Internal & Gereja/Adat', 
+    label: 'Internal & Gereja', 
     code: 'Internal',
     icon: 'HeartHandshake', 
     gradient: 'from-rose-400 to-pink-600', 
