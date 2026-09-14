@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Clock, 
   Calendar, 
@@ -16,7 +17,8 @@ import {
   Check, 
   Timer, 
   Layers,
-  FileText
+  FileText,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -227,8 +229,19 @@ export function RundownView({ items = [], onChange }) {
     setCustomDuration(formatMinutes(mins));
   };
 
+  // Lock background body scroll when modal is open
+  useEffect(() => {
+    if (isModalOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isModalOpen]);
+
   const handleDelete = (id) => {
-    onChange(items.filter(item => item.id !== id));
+    onChange(safeItems.filter(item => item.id !== id));
   };
 
   const handleSave = (e) => {
@@ -246,14 +259,14 @@ export function RundownView({ items = [], onChange }) {
     };
 
     if (editingItem) {
-      onChange(items.map(i => i.id === editingItem.id ? { ...i, ...payload } : i));
+      onChange(safeItems.map(i => i.id === editingItem.id ? { ...i, ...payload } : i));
     } else {
       const newItem = {
         id: `rd-${Date.now()}`,
         status: 'Upcoming',
         ...payload
       };
-      onChange([...items, newItem]);
+      onChange([...safeItems, newItem]);
     }
     setIsModalOpen(false);
   };
@@ -461,235 +474,230 @@ export function RundownView({ items = [], onChange }) {
         )}
       </div>
 
-      {/* Clean Modal Add/Edit Rundown with Smart Time Picker (Mobile Optimized) */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-stone-950/40 backdrop-blur-xs"
-              onClick={() => setIsModalOpen(false)}
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.94, y: 16 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: 12 }}
-              transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-              className="relative w-full max-w-md max-h-[92vh] sm:max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-stone-200 flex flex-col overflow-hidden z-10"
-              onClick={(e) => e.stopPropagation()}
-            >
-            {/* Modal Header */}
-            <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-stone-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-rose-50 flex-shrink-0">
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-stone-900">
-                  {editingItem ? 'Edit Agenda Rundown' : 'Tambah Agenda Rundown Baru'}
-                </h3>
-                <p className="text-[11px] sm:text-xs text-stone-500 mt-0.5">
-                  Atur jadwal waktu kegiatan hari-H
-                </p>
-              </div>
-              <button 
-                type="button"
+      {/* Clean Modal Add/Edit Rundown with Smart Time Picker (Mobile Bottom Sheet & Portal) */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-stone-950/50 backdrop-blur-xs"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+              />
+
+              {/* Bottom Sheet Modal Container */}
+              <motion.div 
+                initial={{ opacity: 0, y: 80, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 80, scale: 0.98 }}
+                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                className="relative w-full sm:max-w-md max-h-[88vh] sm:max-h-[85vh] bg-white rounded-t-[28px] sm:rounded-3xl shadow-2xl border-t sm:border border-stone-200 flex flex-col overflow-hidden z-10"
+                onClick={(e) => e.stopPropagation()}
               >
-                ✕
-              </button>
-            </div>
+                {/* Mobile Drag Pill Indicator */}
+                <div className="w-10 h-1 rounded-full bg-stone-300 mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
 
-            <form onSubmit={handleSave} className="flex flex-col flex-1 overflow-hidden min-h-0">
-              {/* Scrollable Form Body */}
-              <div className="p-4 sm:p-5 space-y-3 sm:space-y-3.5 text-xs overflow-y-auto flex-1 overscroll-contain">
-                {/* Time Pickers: Jam Mulai & Jam Selesai */}
-                <div>
-                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-                    <div>
-                      <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1 flex items-center gap-1">
-                        <Clock size={11} className="text-amber-600" />
-                        <span>Jam Mulai</span> <span className="text-rose-500">*</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-1 bg-stone-50 p-1 sm:p-1.5 rounded-xl border border-stone-200">
-                        <div>
-                          <select
-                            value={startTime.split(':')[0] || '08'}
-                            onChange={(e) => {
-                              const m = startTime.split(':')[1] || '00';
-                              handleStartTimeChange(`${e.target.value.padStart(2, '0')}:${m}`);
-                            }}
-                            className="w-full px-1.5 py-1.5 rounded-lg border border-stone-300 text-xs sm:text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
-                          >
-                            {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
-                              <option key={h} value={h}>{h}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <select
-                            value={startTime.split(':')[1] || '00'}
-                            onChange={(e) => {
-                              const h = startTime.split(':')[0] || '08';
-                              handleStartTimeChange(`${h}:${e.target.value.padStart(2, '0')}`);
-                            }}
-                            className="w-full px-1.5 py-1.5 rounded-lg border border-stone-300 text-xs sm:text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
-                          >
-                            {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
-                              <option key={m} value={m}>{m}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1 flex items-center gap-1">
-                        <Clock size={11} className="text-amber-600" />
-                        <span>Jam Selesai</span> <span className="text-rose-500">*</span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-1 bg-stone-50 p-1 sm:p-1.5 rounded-xl border border-stone-200">
-                        <div>
-                          <select
-                            value={endTime.split(':')[0] || '09'}
-                            onChange={(e) => {
-                              const m = endTime.split(':')[1] || '00';
-                              handleEndTimeChange(`${e.target.value.padStart(2, '0')}:${m}`);
-                            }}
-                            className="w-full px-1.5 py-1.5 rounded-lg border border-stone-300 text-xs sm:text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
-                          >
-                            {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
-                              <option key={h} value={h}>{h}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <select
-                            value={endTime.split(':')[1] || '00'}
-                            onChange={(e) => {
-                              const h = endTime.split(':')[0] || '09';
-                              handleEndTimeChange(`${h}:${e.target.value.padStart(2, '0')}`);
-                            }}
-                            className="w-full px-1.5 py-1.5 rounded-lg border border-stone-300 text-xs sm:text-sm font-bold bg-white text-stone-900 text-center font-mono outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
-                          >
-                            {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
-                              <option key={m} value={m}>{m}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
+                {/* Modal Header */}
+                <div className="px-5 py-3 sm:px-6 sm:py-3.5 border-b border-stone-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-rose-50 shrink-0">
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-stone-900">
+                      {editingItem ? 'Edit Agenda Rundown' : 'Tambah Agenda Rundown Baru'}
+                    </h3>
+                    <p className="text-[11px] sm:text-xs text-stone-500">
+                      Atur jadwal waktu kegiatan hari-H
+                    </p>
                   </div>
-
-                  {/* Quick Duration Buttons & Calculated Duration */}
-                  <div className="mt-2 p-2 rounded-xl bg-amber-50/60 border border-amber-200/70 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <span className="text-stone-500 font-medium text-[11px]">Estimasi:</span>
-                      <span className="font-extrabold text-amber-900 text-xs tabular-nums">
-                        {customDuration || '60m'}
-                      </span>
-                    </div>
-
-                    {/* Quick Preset Buttons */}
-                    <div className="flex items-center gap-1 overflow-x-auto">
-                      {[15, 30, 45, 60, 90, 120].map(mins => (
-                        <button
-                          key={mins}
-                          type="button"
-                          onClick={() => handleQuickAddDuration(mins)}
-                          className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-white text-stone-700 border border-stone-200 hover:border-amber-400 hover:text-amber-800 transition shadow-xs whitespace-nowrap cursor-pointer"
-                        >
-                          +{mins}m
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Fase Acara */}
-                <div>
-                  <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
-                    Fase Acara
-                  </label>
-                  <select
-                    value={phase}
-                    onChange={(e) => setPhase(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs bg-white outline-none focus:border-amber-600 cursor-pointer"
+                  <button 
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition cursor-pointer"
                   >
-                    {PHASES.filter(p => p !== 'Semua').map(p => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
+                    <X size={16} />
+                  </button>
                 </div>
 
-                {/* Nama Kegiatan */}
-                <div>
-                  <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
-                    Nama Kegiatan / Agenda <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={activity}
-                    onChange={(e) => setActivity(e.target.value)}
-                    placeholder="Contoh: Ibadah Pemberkatan Nikah Kudus..."
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:border-amber-600"
-                  />
-                </div>
+                <form onSubmit={handleSave} className="flex flex-col flex-1 overflow-hidden min-h-0">
+                  {/* Scrollable Form Body */}
+                  <div className="p-4 sm:p-5 space-y-3 text-xs overflow-y-auto flex-1 overscroll-contain">
+                    {/* Time Pickers: Jam Mulai & Jam Selesai */}
+                    <div className="p-2.5 rounded-2xl bg-amber-50/40 border border-amber-200/60 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1 flex items-center gap-1">
+                            <Clock size={11} className="text-amber-600" />
+                            <span>Jam Mulai</span> <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-stone-200 shadow-2xs">
+                            <select
+                              value={startTime.split(':')[0] || '08'}
+                              onChange={(e) => {
+                                const m = startTime.split(':')[1] || '00';
+                                handleStartTimeChange(`${e.target.value.padStart(2, '0')}:${m}`);
+                              }}
+                              className="flex-1 py-1 text-xs sm:text-sm font-bold bg-transparent text-stone-900 text-center font-mono outline-none cursor-pointer"
+                            >
+                              {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
+                                <option key={h} value={h}>{h}</option>
+                              ))}
+                            </select>
+                            <span className="font-bold text-stone-400 text-xs">:</span>
+                            <select
+                              value={startTime.split(':')[1] || '00'}
+                              onChange={(e) => {
+                                const h = startTime.split(':')[0] || '08';
+                                handleStartTimeChange(`${h}:${e.target.value.padStart(2, '0')}`);
+                              }}
+                              className="flex-1 py-1 text-xs sm:text-sm font-bold bg-transparent text-stone-900 text-center font-mono outline-none cursor-pointer"
+                            >
+                              {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
 
-                {/* PIC */}
-                <div>
-                  <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
-                    PIC / Penanggung Jawab
-                  </label>
-                  <input
-                    type="text"
-                    value={pic}
-                    onChange={(e) => setPic(e.target.value)}
-                    placeholder="Contoh: WO & Planner, Tim Altar..."
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:border-amber-600"
-                  />
-                </div>
+                        <div>
+                          <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1 flex items-center gap-1">
+                            <Clock size={11} className="text-amber-600" />
+                            <span>Jam Selesai</span> <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-stone-200 shadow-2xs">
+                            <select
+                              value={endTime.split(':')[0] || '09'}
+                              onChange={(e) => {
+                                const m = endTime.split(':')[1] || '00';
+                                handleEndTimeChange(`${e.target.value.padStart(2, '0')}:${m}`);
+                              }}
+                              className="flex-1 py-1 text-xs sm:text-sm font-bold bg-transparent text-stone-900 text-center font-mono outline-none cursor-pointer"
+                            >
+                              {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
+                                <option key={h} value={h}>{h}</option>
+                              ))}
+                            </select>
+                            <span className="font-bold text-stone-400 text-xs">:</span>
+                            <select
+                              value={endTime.split(':')[1] || '00'}
+                              onChange={(e) => {
+                                const h = endTime.split(':')[0] || '09';
+                                handleEndTimeChange(`${h}:${e.target.value.padStart(2, '0')}`);
+                              }}
+                              className="flex-1 py-1 text-xs sm:text-sm font-bold bg-transparent text-stone-900 text-center font-mono outline-none cursor-pointer"
+                            >
+                              {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
 
-                {/* Keterangan & Catatan Teknis */}
-                <div>
-                  <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
-                    Keterangan &amp; Catatan Teknis
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Lokasi, perlengkapan, briefing khusus..."
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:border-amber-600 resize-none"
-                  />
-                </div>
-              </div>
+                      {/* Quick Duration Buttons & Calculated Duration */}
+                      <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-amber-200/50">
+                        <span className="text-[11px] font-extrabold text-amber-900 tabular-nums">
+                          ⏱ {customDuration || '60m'}
+                        </span>
+                        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                          {[15, 30, 45, 60, 90, 120].map(mins => (
+                            <button
+                              key={mins}
+                              type="button"
+                              onClick={() => handleQuickAddDuration(mins)}
+                              className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-white text-stone-700 border border-stone-200 hover:border-amber-400 hover:text-amber-800 transition shadow-2xs whitespace-nowrap cursor-pointer"
+                            >
+                              +{mins}m
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
 
-              {/* Pinned Modal Actions Footer */}
-              <div className="px-4 py-2.5 sm:py-3 sm:px-5 border-t border-stone-100 bg-stone-50/90 flex items-center justify-end gap-2 flex-shrink-0">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.96 }}
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-200/60 font-semibold transition text-xs cursor-pointer"
-                >
-                  Batal
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.96 }}
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 text-white font-bold hover:from-amber-700 hover:to-rose-700 shadow-xs transition text-xs cursor-pointer"
-                >
-                  Simpan Agenda
-                </motion.button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
+                    {/* 2-Column Responsive: Fase Acara & PIC */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
+                          Fase Acara
+                        </label>
+                        <select
+                          value={phase}
+                          onChange={(e) => setPhase(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs bg-white outline-none focus:border-amber-600 cursor-pointer shadow-2xs"
+                        >
+                          {PHASES.filter(p => p !== 'Semua').map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
+                          PIC / Penanggung Jawab
+                        </label>
+                        <input
+                          type="text"
+                          value={pic}
+                          onChange={(e) => setPic(e.target.value)}
+                          placeholder="Contoh: WO & Planner..."
+                          className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs bg-white outline-none focus:border-amber-600 shadow-2xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Nama Kegiatan */}
+                    <div>
+                      <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
+                        Nama Kegiatan / Agenda <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={activity}
+                        onChange={(e) => setActivity(e.target.value)}
+                        placeholder="Contoh: Ibadah Pemberkatan Nikah Kudus..."
+                        className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs bg-white outline-none focus:border-amber-600 shadow-2xs font-medium"
+                      />
+                    </div>
+
+                    {/* Keterangan & Catatan Teknis */}
+                    <div>
+                      <label className="block font-bold text-stone-700 uppercase tracking-wider text-[10px] mb-1">
+                        Keterangan &amp; Catatan Teknis
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder="Lokasi, perlengkapan, briefing khusus..."
+                        className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs bg-white outline-none focus:border-amber-600 resize-none shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Pinned Modal Actions Footer with iOS Safe Area */}
+                  <div className="px-4 py-3 sm:px-5 border-t border-stone-100 bg-stone-50/95 backdrop-blur-sm flex items-center justify-end gap-2 shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-200/60 font-semibold transition text-xs cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 text-white font-bold hover:from-amber-700 hover:to-rose-700 shadow-xs transition text-xs cursor-pointer"
+                    >
+                      Simpan Agenda
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
       )}
-    </AnimatePresence>
     </div>
   );
 }
