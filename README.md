@@ -1,4 +1,4 @@
-# 💍 Wedding Dashboard — Andre & Lois
+Wedding Dashboard — Andre & Lois
 
 Modern, elegant, and responsive Web Dashboard for Wedding Operations & Checklist Management.
 
