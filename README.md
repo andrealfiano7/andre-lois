@@ -2,6 +2,8 @@
 
 Modern, elegant, and responsive Web Dashboard for Wedding Operations & Checklist Management.
 
+🌐 **Live URL**: [https://andre-lois.vercel.app/](https://andre-lois.vercel.app/)
+
 ---
 
 ## ✨ Fitur Utama
@@ -64,9 +66,9 @@ Server development akan aktif di http://localhost:5173/.
 
 ### Build untuk Produksi
 
-`ash
+```bash
 npm run build
-`
+```
 
 Hasil build akan tersimpan di direktori dist/.
 
