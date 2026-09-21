@@ -18,7 +18,11 @@ import {
   Timer, 
   Layers,
   FileText,
-  X
+  X,
+  Maximize2,
+  ChevronLeft,
+  ChevronRight,
+  Presentation
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -103,6 +107,10 @@ export function RundownView({ items = [], onChange }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
 
+  // Presentation Mode State
+  const [presentationItem, setPresentationItem] = useState(null);
+  const [presentationIndex, setPresentationIndex] = useState(0);
+
   // Time picker state for modal
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('09:00');
@@ -129,7 +137,7 @@ export function RundownView({ items = [], onChange }) {
     });
   }, [safeItems]);
 
-  // Stats calculation (Clean operational metrics, no status)
+  // Stats calculation
   const stats = useMemo(() => {
     const total = normalizedItems.length;
     let totalMinutes = 0;
@@ -145,7 +153,7 @@ export function RundownView({ items = [], onChange }) {
     return { total, hours, picCount: pics.size };
   }, [normalizedItems]);
 
-  // Phase Icon & Color Helper (Strictly without Adat)
+  // Phase Icon & Color Helper
   const getPhaseMeta = (p) => {
     if (!p) return { icon: <Layers size={13} className="text-stone-500" />, badge: 'bg-stone-50 text-stone-800 border-stone-200' };
     if (p.includes('Pagi')) return { icon: <Sun size={13} className="text-amber-500" />, badge: 'bg-amber-50 text-amber-900 border-amber-200' };
@@ -164,6 +172,48 @@ export function RundownView({ items = [], onChange }) {
       return matchPhase && matchQuery;
     });
   }, [normalizedItems, selectedPhase, searchQuery]);
+
+  // Presentation Modal Handlers
+  const handleOpenPresentation = (item, index) => {
+    setPresentationItem(item);
+    setPresentationIndex(index);
+  };
+
+  const handleNextPresentation = () => {
+    if (presentationIndex < filteredItems.length - 1) {
+      const nextIdx = presentationIndex + 1;
+      setPresentationIndex(nextIdx);
+      setPresentationItem(filteredItems[nextIdx]);
+    }
+  };
+
+  const handlePrevPresentation = () => {
+    if (presentationIndex > 0) {
+      const prevIdx = presentationIndex - 1;
+      setPresentationIndex(prevIdx);
+      setPresentationItem(filteredItems[prevIdx]);
+    }
+  };
+
+  // Keyboard navigation for presentation mode
+  useEffect(() => {
+    if (!presentationItem) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+        e.preventDefault();
+        handleNextPresentation();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        handlePrevPresentation();
+      } else if (e.key === 'Escape') {
+        setPresentationItem(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [presentationItem, presentationIndex, filteredItems]);
 
   // Handle open modal for add
   const handleOpenAdd = () => {
@@ -229,16 +279,16 @@ export function RundownView({ items = [], onChange }) {
     setCustomDuration(formatMinutes(mins));
   };
 
-  // Lock background body scroll when modal is open
+  // Lock background body scroll when any modal is open
   useEffect(() => {
-    if (isModalOpen) {
+    if (isModalOpen || presentationItem) {
       const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       return () => {
         document.body.style.overflow = originalOverflow;
       };
     }
-  }, [isModalOpen]);
+  }, [isModalOpen, presentationItem]);
 
   const handleDelete = (id) => {
     onChange(safeItems.filter(item => item.id !== id));
@@ -271,14 +321,16 @@ export function RundownView({ items = [], onChange }) {
     setIsModalOpen(false);
   };
 
+  const presentationPhaseMeta = presentationItem ? getPhaseMeta(presentationItem.phase) : null;
+
   return (
-    <div className="space-y-3.5 sm:space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-amber-100/90 via-orange-100/70 to-rose-100/80 border border-amber-200/80 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-amber-100/90 via-orange-100/70 to-rose-100/80 border border-amber-200/80 shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-xs flex-shrink-0">
-              <Clock size={16} />
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-xs flex-shrink-0">
+              <Clock size={18} />
             </div>
             <div>
               <h2 className="text-base sm:text-xl font-bold text-stone-900 tracking-tight">
@@ -292,6 +344,21 @@ export function RundownView({ items = [], onChange }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
+          {/* Mode Presentasi Quick Trigger */}
+          <button
+            type="button"
+            onClick={() => {
+              if (filteredItems.length > 0) {
+                handleOpenPresentation(filteredItems[0], 0);
+              }
+            }}
+            className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-semibold bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs transition flex items-center gap-1.5 cursor-pointer"
+            title="Mulai presentasi rundown slide-by-slide"
+          >
+            <Presentation size={14} className="text-amber-600" />
+            <span>Mode Presentasi</span>
+          </button>
+
           <button
             type="button"
             onClick={handleOpenAdd}
@@ -303,9 +370,9 @@ export function RundownView({ items = [], onChange }) {
         </div>
       </div>
 
-      {/* Clean Operational Metric Cards (3 Columns on Mobile & Desktop) */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <div className="nude-card p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white to-amber-50/50">
+      {/* Clean Operational Metric Cards (3 Columns) */}
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5">
+        <div className="nude-card p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-white to-amber-50/50 border border-stone-200/80 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-stone-500 truncate">Total Sesi</span>
             <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
@@ -316,7 +383,7 @@ export function RundownView({ items = [], onChange }) {
           <p className="text-[10px] sm:text-[11px] text-stone-500 mt-0.5 truncate">Terjadwal</p>
         </div>
 
-        <div className="nude-card p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white to-orange-50/50">
+        <div className="nude-card p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-white to-orange-50/50 border border-stone-200/80 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-800 truncate">Rentang</span>
             <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center">
@@ -327,7 +394,7 @@ export function RundownView({ items = [], onChange }) {
           <p className="text-[10px] sm:text-[11px] text-amber-700 mt-0.5 truncate">Durasi total</p>
         </div>
 
-        <div className="nude-card p-3 sm:p-4 rounded-2xl bg-gradient-to-br from-white to-emerald-50/50">
+        <div className="nude-card p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-white to-emerald-50/50 border border-stone-200/80 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-800 truncate">Tim PIC</span>
             <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
@@ -340,7 +407,7 @@ export function RundownView({ items = [], onChange }) {
       </div>
 
       {/* Filter Tabs & Search */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl nude-card">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl nude-card border border-stone-200/80">
         {/* Phase Buttons with Spring Indicator */}
         <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
           {PHASES.map(p => (
@@ -379,10 +446,10 @@ export function RundownView({ items = [], onChange }) {
         </div>
       </div>
 
-      {/* Clean Rundown List (No Status Buttons, Clean Schedule) */}
+      {/* Rundown List View - Refined Spacing & Clickable for Presentation */}
       <div className="space-y-3">
         {filteredItems.length === 0 ? (
-          <div className="nude-card rounded-2xl p-12 text-center">
+          <div className="nude-card rounded-2xl p-12 text-center border border-stone-200/80">
             <Clock size={24} className="mx-auto text-stone-300 mb-2" />
             <p className="text-xs font-semibold text-stone-700">Tidak ada agenda pada fase yang dipilih.</p>
           </div>
@@ -393,18 +460,20 @@ export function RundownView({ items = [], onChange }) {
             return (
               <motion.div
                 key={item.id}
-                whileHover={{ y: -2, scale: 1.006 }}
-                transition={{ duration: 0.18 }}
-                className="nude-card rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 bg-white hover:border-amber-300 transition-all shadow-xs group"
+                onClick={() => handleOpenPresentation(item, index)}
+                whileHover={{ y: -2, scale: 1.004 }}
+                transition={{ duration: 0.16 }}
+                className="nude-card rounded-2xl p-4 sm:p-4.5 border border-stone-200/90 bg-white hover:border-amber-400 hover:shadow-md transition-all shadow-xs group cursor-pointer"
+                title="Klik untuk melihat detail / presentasi"
               >
-                {/* 1. Header Bar: Badges on left, Actions on right */}
-                <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-stone-100">
-                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                {/* 1. Header Bar: Badges on left, Actions & Presentation Trigger on right */}
+                <div className="flex items-center justify-between gap-2.5 pb-2.5 border-b border-stone-100">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
                     {/* Time Pill */}
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50/60 border border-amber-200/80 text-stone-900 font-extrabold text-xs tabular-nums shadow-2xs">
-                      <Clock size={12} className="text-amber-700 shrink-0" />
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50/80 border border-amber-200/90 text-stone-900 font-extrabold text-xs sm:text-sm tabular-nums shadow-2xs">
+                      <Clock size={13} className="text-amber-700 shrink-0" />
                       <span>{item.time}</span>
-                      <span className="text-[10px] font-bold text-amber-800 bg-amber-200/60 px-1.5 py-0.2 rounded-md">
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-200/70 px-1.5 py-0.2 rounded-md">
                         {item.duration}
                       </span>
                     </span>
@@ -416,53 +485,60 @@ export function RundownView({ items = [], onChange }) {
                     </span>
                   </div>
 
-                  {/* Actions: Edit & Delete */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <motion.button
-                      whileHover={{ scale: 1.15 }}
-                      whileTap={{ scale: 0.9 }}
+                  {/* Actions Bar */}
+                  <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    {/* Pop-up Presentation Trigger Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPresentation(item, index)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition flex items-center gap-1 cursor-pointer group-hover:bg-amber-100"
+                      title="Buka Pop-up Presentasi"
+                    >
+                      <Maximize2 size={12} className="text-amber-700" />
+                      <span className="hidden sm:inline">Presentasi</span>
+                    </button>
+
+                    <button
                       type="button"
                       onClick={() => handleOpenEdit(item)}
                       className="p-1.5 rounded-lg text-stone-400 hover:text-stone-800 hover:bg-stone-100 transition cursor-pointer"
                       title="Edit Agenda"
                     >
                       <Edit3 size={15} />
-                    </motion.button>
+                    </button>
 
-                    <motion.button
-                      whileHover={{ scale: 1.15 }}
-                      whileTap={{ scale: 0.9 }}
+                    <button
                       type="button"
                       onClick={() => handleDelete(item.id)}
                       className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                       title="Hapus Agenda"
                     >
                       <Trash2 size={15} />
-                    </motion.button>
+                    </button>
                   </div>
                 </div>
 
-                {/* 2. Content Body: Activity, PIC, and Note */}
+                {/* 2. Content Body: Activity Title, PIC, Note */}
                 <div className="pt-2.5 space-y-2">
-                  {/* Activity Title - prominent & full width */}
-                  <h4 className="text-sm sm:text-base font-bold text-stone-900 leading-snug">
+                  {/* Activity Title */}
+                  <h4 className="text-base sm:text-lg font-bold text-stone-900 leading-snug tracking-tight">
                     {item.activity}
                   </h4>
 
-                  {/* PIC Row - clean tag */}
+                  {/* PIC Badge */}
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-100/80 text-stone-700 font-medium">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.8 rounded-lg bg-stone-100 text-stone-700 font-medium">
                       <User size={12} className="text-stone-500 shrink-0" />
                       <span className="text-stone-500">PIC:</span>
                       <span className="font-bold text-stone-900">{item.pic}</span>
                     </span>
                   </div>
 
-                  {/* Note Callout (if present) - clean card with subtle icon & full width */}
+                  {/* Note Callout - Compact, Cleanly Padded & Styled */}
                   {item.note && (
-                    <div className="p-2.5 rounded-xl bg-stone-50/90 border border-stone-200/70 text-xs text-stone-600 flex items-start gap-2">
-                      <FileText size={13} className="text-amber-700/70 shrink-0 mt-0.5" />
-                      <p className="leading-relaxed text-stone-700 flex-1 break-words">
+                    <div className="mt-1.5 p-2.5 sm:p-3 rounded-xl bg-stone-50/90 border border-stone-200/70 text-xs sm:text-[13px] text-stone-700 flex items-start gap-2.5 leading-relaxed">
+                      <FileText size={14} className="text-amber-700/80 shrink-0 mt-0.5" />
+                      <p className="flex-1 break-words">
                         {item.note}
                       </p>
                     </div>
@@ -473,6 +549,169 @@ export function RundownView({ items = [], onChange }) {
           })
         )}
       </div>
+
+      {/* 🌟 PRESENTATION POP-UP MODAL (Slide Presentation Mode) 🌟 */}
+      {typeof document !== 'undefined' && presentationItem && createPortal(
+        <AnimatePresence>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
+            {/* Dark Presentation Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-stone-950/80 backdrop-blur-md"
+              onClick={() => setPresentationItem(null)}
+            />
+
+            {/* Presentation Slide Container */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+              className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden z-10 flex flex-col max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Top Navigation / Controls */}
+              <div className="px-5 py-3 sm:px-6 sm:py-3.5 border-b border-stone-100 flex items-center justify-between bg-gradient-to-r from-amber-50 via-white to-orange-50 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                    Agenda {presentationIndex + 1} dari {filteredItems.length}
+                  </span>
+                  {presentationPhaseMeta && (
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${presentationPhaseMeta.badge}`}>
+                      {presentationPhaseMeta.icon}
+                      <span>{presentationItem.phase}</span>
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const curr = presentationItem;
+                      setPresentationItem(null);
+                      handleOpenEdit(curr);
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold text-stone-600 hover:bg-stone-100 transition flex items-center gap-1 cursor-pointer"
+                    title="Edit agenda ini"
+                  >
+                    <Edit3 size={13} />
+                    <span className="hidden sm:inline">Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPresentationItem(null)}
+                    className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                    title="Tutup (Esc)"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Presentation Slide Body */}
+              <div className="p-5 sm:p-8 overflow-y-auto space-y-5 flex-1">
+                {/* Time & Duration Spotlight Card */}
+                <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 border border-amber-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-600 to-orange-500 text-white flex items-center justify-center shadow-xs">
+                      <Clock size={22} />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-900">Jadwal Waktu</div>
+                      <div className="text-xl sm:text-2xl font-extrabold text-stone-900 tracking-tight tabular-nums">
+                        {presentationItem.time} <span className="text-xs font-semibold text-stone-500">WIB</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400">Durasi</div>
+                    <div className="text-base sm:text-lg font-bold text-amber-800 bg-amber-100 px-3 py-0.5 rounded-xl border border-amber-300">
+                      {presentationItem.duration}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Activity Title in Large Presentation Style */}
+                <div className="space-y-1">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400">Nama Agenda Acara</div>
+                  <h2 className="text-xl sm:text-2xl font-bold text-stone-900 leading-snug">
+                    {presentationItem.activity}
+                  </h2>
+                </div>
+
+                {/* PIC Card */}
+                <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-amber-700 shadow-2xs">
+                    <User size={18} />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400">Koordinator / Penanggung Jawab (PIC)</div>
+                    <div className="text-sm sm:text-base font-bold text-stone-900">
+                      {presentationItem.pic}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Technical Briefing & Notes */}
+                {presentationItem.note ? (
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                      <FileText size={13} className="text-amber-600" />
+                      <span>Instruksi &amp; Catatan Teknis</span>
+                    </div>
+                    <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/50 border border-amber-200/70 text-stone-800 text-sm sm:text-base leading-relaxed whitespace-pre-line font-medium shadow-2xs">
+                      {presentationItem.note}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-stone-50 border border-dashed border-stone-200 text-stone-400 text-xs italic text-center">
+                    Tidak ada catatan instruksi khusus untuk agenda ini.
+                  </div>
+                )}
+              </div>
+
+              {/* Navigation Footer */}
+              <div className="px-5 py-3 sm:px-6 sm:py-3.5 border-t border-stone-100 bg-stone-50 flex items-center justify-between shrink-0">
+                <button
+                  type="button"
+                  disabled={presentationIndex === 0}
+                  onClick={handlePrevPresentation}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                    presentationIndex === 0
+                      ? 'opacity-40 cursor-not-allowed bg-stone-200 text-stone-400'
+                      : 'bg-white hover:bg-stone-100 text-stone-800 border border-stone-200 shadow-2xs'
+                  }`}
+                >
+                  <ChevronLeft size={16} />
+                  <span>Sebelumnya</span>
+                </button>
+
+                <span className="text-[11px] text-stone-400 hidden sm:inline font-mono">
+                  Navigasi: &larr; / &rarr; | Tutup: Esc
+                </span>
+
+                <button
+                  type="button"
+                  disabled={presentationIndex === filteredItems.length - 1}
+                  onClick={handleNextPresentation}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                    presentationIndex === filteredItems.length - 1
+                      ? 'opacity-40 cursor-not-allowed bg-stone-200 text-stone-400'
+                      : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white shadow-xs'
+                  }`}
+                >
+                  <span>Selanjutnya</span>
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Clean Modal Add/Edit Rundown with Smart Time Picker (Mobile Bottom Sheet & Portal) */}
       {typeof document !== 'undefined' && createPortal(
@@ -639,7 +878,7 @@ export function RundownView({ items = [], onChange }) {
                           type="text"
                           value={pic}
                           onChange={(e) => setPic(e.target.value)}
-                          placeholder="Contoh: WO & Planner..."
+                          placeholder="Contoh: WO &amp; Planner..."
                           className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs bg-white outline-none focus:border-amber-600 shadow-2xs"
                         />
                       </div>
