@@ -300,7 +300,7 @@ export default function App() {
   const MODULES = useMemo(() => [
     {
       id: 'dashboard',
-      label: 'Executive Dashboard',
+      label: 'Progress Dashboard',
       shortLabel: 'Dashboard',
       desc: 'Ringkasan progres, statistik & linimasa',
       icon: LayoutDashboard,
