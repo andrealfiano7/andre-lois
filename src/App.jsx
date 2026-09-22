@@ -9,7 +9,8 @@ import {
   RefreshCw, 
   ExternalLink, 
   Plus, 
-  ArrowRight
+  ArrowRight,
+  Luggage
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import logoImg from './assets/logo.png';
@@ -17,6 +18,7 @@ import { useWeddingData } from './hooks/useWeddingData';
 import { useCountdown } from './hooks/useCountdown';
 import { GOOGLE_SHEET_URL } from './data/initialTasks';
 import { INITIAL_PHOTO_LIST, INITIAL_RUNDOWN } from './data/otherSheets';
+import { INITIAL_LOGISTICS_LIST } from './data/initialLogistics';
 import { StatsOverview } from './components/StatsOverview';
 import { ViewSwitcher } from './components/ViewSwitcher';
 import { FilterBar } from './components/FilterBar';
@@ -28,10 +30,12 @@ import { CountdownModal } from './components/CountdownModal';
 import { SyncNotification } from './components/SyncNotification';
 import { GuestPhotoView } from './components/GuestPhotoView';
 import { RundownView } from './components/RundownView';
+import { LogisticsView } from './components/LogisticsView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 const PHOTO_STORAGE = 'wedding_photo_list_v4_clean';
 const RUNDOWN_STORAGE = 'wedding_rundown_v5_live';
+const LOGISTICS_STORAGE = 'wedding_logistics_v1';
 
 const loadStorage = (key, fallback) => {
   try {
@@ -87,6 +91,7 @@ export default function App() {
   // Other sheets data
   const [photoList, setPhotoList] = useState(() => loadStorage(PHOTO_STORAGE, INITIAL_PHOTO_LIST));
   const [rundownList, setRundownList] = useState(() => loadStorage(RUNDOWN_STORAGE, INITIAL_RUNDOWN));
+  const [logisticsList, setLogisticsList] = useState(() => loadStorage(LOGISTICS_STORAGE, INITIAL_LOGISTICS_LIST));
 
   // Realtime Live Sync for Rundown & Photos from Neon Database
   useEffect(() => {
@@ -160,6 +165,14 @@ export default function App() {
           }
         } catch {}
       }
+      if (e.key === LOGISTICS_STORAGE && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setLogisticsList(parsed);
+          }
+        } catch {}
+      }
     };
     window.addEventListener('storage', handleStorage);
 
@@ -189,6 +202,14 @@ export default function App() {
     }
   }, [rundownList]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOGISTICS_STORAGE, JSON.stringify(logisticsList));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [logisticsList]);
+
   const handlePhotoChange = (newList) => {
     setPhotoList(newList);
     fetch('/api/photos', {
@@ -205,6 +226,15 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newList)
     }).catch(() => {});
+  };
+
+  const handleLogisticsChange = (newList) => {
+    setLogisticsList(newList);
+  };
+
+  const handleResetLogistics = () => {
+    setLogisticsList(INITIAL_LOGISTICS_LIST);
+    setSyncStatus({ type: 'success', message: 'Daftar logistik dikembalikan ke bawaan template!' });
   };
 
   // Filtered tasks for Checklist module
@@ -337,8 +367,18 @@ export default function App() {
       badge: rundownList.length,
       color: 'text-sky-500',
       bg: 'bg-sky-100 text-sky-800'
+    },
+    {
+      id: 'logistics',
+      label: 'List Barang & Logistik',
+      shortLabel: 'Barang',
+      desc: 'Checklist barang di hotel & keperluan holy matrimony',
+      icon: Luggage,
+      badge: `${logisticsList.filter(i => i.status === 'Siap').length}/${logisticsList.length}`,
+      color: 'text-amber-600',
+      bg: 'bg-amber-100 text-amber-800'
     }
-  ], [stats.overallProgress, tasks.length, photoList.length, rundownList.length]);
+  ], [stats.overallProgress, tasks.length, photoList.length, rundownList.length, logisticsList]);
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#2D251E] flex flex-col">
@@ -470,7 +510,7 @@ export default function App() {
             />
 
             {/* Quick Navigation Cards to other sheets with bright gradient accents */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
               <button
                 type="button"
                 onClick={() => setActiveModule('checklist')}
@@ -519,6 +559,23 @@ export default function App() {
                 </p>
                 <div className="mt-3.5 text-xs font-bold text-amber-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                   Lihat linimasa acara ({rundownList.length} sesi) <ArrowRight size={13} />
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveModule('logistics')}
+                className="nude-card p-5 rounded-3xl text-left bg-gradient-to-br from-white via-nude-50 to-amber-50/40 hover:border-amber-300 transition group shadow-nude-soft"
+              >
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-amber-600 text-white flex items-center justify-center mb-3 shadow-xs">
+                  <Luggage size={20} />
+                </div>
+                <h3 className="text-sm font-bold text-stone-900">Logistik &amp; Barang</h3>
+                <p className="text-xs text-stone-500 mt-1">
+                  Checklist barang di hotel &amp; keperluan ibadah Holy Matrimony.
+                </p>
+                <div className="mt-3.5 text-xs font-bold text-amber-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  Cek barang ({logisticsList.filter(i => i.status === 'Siap').length}/{logisticsList.length} siap) <ArrowRight size={13} />
                 </div>
               </button>
             </div>
@@ -619,6 +676,15 @@ export default function App() {
             onChange={handleRundownChange}
           />
         )}
+
+        {/* Module 5: Logistik & Barang */}
+        {activeModule === 'logistics' && (
+          <LogisticsView
+            items={logisticsList}
+            onChange={handleLogisticsChange}
+            onResetToDefault={handleResetLogistics}
+          />
+        )}
           </div>
         </ErrorBoundary>
       </main>
@@ -708,7 +774,7 @@ function MobileNavButton({ active, onClick, icon: Icon, label }) {
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all cursor-pointer select-none outline-none ${
+      className={`relative flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-2xl transition-all cursor-pointer select-none outline-none ${
         active ? 'text-stone-900 font-bold' : 'text-stone-500 hover:text-stone-800'
       }`}
     >
@@ -720,21 +786,21 @@ function MobileNavButton({ active, onClick, icon: Icon, label }) {
         />
       )}
 
-      <div className="relative z-10 flex flex-col items-center">
+      <div className="relative z-10 flex flex-col items-center w-full min-w-0">
         <motion.div
-          animate={active ? { scale: [1, 1.18, 1], y: [0, -2, 0] } : { scale: 1, y: 0 }}
-          transition={{ duration: 0.28, ease: 'easeOut' }}
+          animate={active ? { scale: [1, 1.15, 1], y: [0, -1.5, 0] } : { scale: 1, y: 0 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
           className="flex items-center justify-center"
         >
           <Icon 
-            size={21} 
+            size={18} 
             className={`transition-colors duration-200 ${
               active ? 'text-amber-700 stroke-[2.3]' : 'text-stone-400 stroke-[1.8]'
             }`} 
           />
         </motion.div>
 
-        <span className={`text-[10px] tracking-tight mt-1 transition-colors duration-200 ${
+        <span className={`text-[9px] sm:text-[10px] leading-tight tracking-tight mt-0.5 truncate max-w-full text-center px-0.5 transition-colors duration-200 ${
           active ? 'font-extrabold text-amber-950' : 'font-medium text-stone-500'
         }`}>
           {label}
