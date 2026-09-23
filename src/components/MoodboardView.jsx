@@ -18,6 +18,7 @@ import {
   RotateCcw, 
   Tag, 
   ArrowRight,
+  ArrowLeft,
   ChevronLeft,
   Folder,
   Grid,
@@ -524,169 +525,155 @@ export function MoodboardView({
       {/* LEVEL 2: DEDICATED CATEGORY PAGE (HALAMAN KHUSUS PER KATEGORI & SUB-KAT)  */}
       {/* ========================================================================= */}
       {activeCategoryView && currentCategoryObj ? (
-        <div className="space-y-5 animate-fade-in">
-          {/* Breadcrumb & Back Bar */}
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveCategoryView(null);
-                setActiveSubCategory('all');
-                setSearchQuery('');
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#EADBCE] text-stone-700 hover:text-stone-900 hover:border-stone-400 font-bold text-xs transition shadow-2xs cursor-pointer group"
-            >
-              <ChevronLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
-              <span>Semua Kategori</span>
-            </button>
+        <div className="space-y-4 sm:space-y-5 animate-fade-in">
+          {/* Unified Sleek Category Header Card */}
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#EADBCE] shadow-xs space-y-3.5">
+            {/* Top Row: Back button, Title & Badges, Actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {/* Left: Back button + Title */}
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveCategoryView(null);
+                    setActiveSubCategory('all');
+                    setSearchQuery('');
+                  }}
+                  className="p-2 sm:px-3 sm:py-2 rounded-2xl bg-[#FAF7F2] hover:bg-stone-100 border border-[#EADBCE] text-stone-700 hover:text-stone-900 flex items-center gap-1.5 transition shadow-2xs cursor-pointer group shrink-0"
+                  title="Kembali ke Semua Kategori"
+                >
+                  <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
+                  <span className="hidden sm:inline text-xs font-bold">Semua Kategori</span>
+                </button>
 
-            {/* Breadcrumb Indicator */}
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-stone-500 font-medium">
-              <span>Moodboard</span>
-              <span>/</span>
-              <span className="font-bold text-stone-900">{currentCategoryObj.label}</span>
-              {activeSubCategory !== 'all' && (
-                <>
-                  <span>/</span>
-                  <span className="text-amber-800 font-bold">
-                    {getSubCategoryLabel(currentCategoryObj.id, activeSubCategory)}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
+                <div className="h-6 w-px bg-stone-200 hidden sm:block shrink-0" />
 
-          {/* Category Hero Header Banner */}
-          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#EADBCE] shadow-xs relative overflow-hidden">
-            <div className={`absolute top-0 left-0 right-0 h-1.5 ${getCategoryPreset(currentCategoryObj.id).bg}`} />
-            
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-start sm:items-center gap-3.5">
-                <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ${getCategoryPreset(currentCategoryObj.id).bg} text-white flex items-center justify-center shadow-xs shrink-0`}>
-                  <Palette size={26} />
-                </div>
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-lg sm:text-2xl font-extrabold text-stone-900 tracking-tight">
+                    <h2 className="text-base sm:text-xl font-extrabold text-stone-900 tracking-tight">
                       {currentCategoryObj.label}
                     </h2>
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold ${getCategoryBadgeClass(currentCategoryObj.id)}`}>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200/80">
                       {safeItems.filter(i => i.categoryId === currentCategoryObj.id).length} Foto
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-stone-100 text-stone-700 border border-stone-200">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-stone-100 text-stone-600">
                       {currentCategoryObj.subCategories?.length || 0} Sub-Kategori
                     </span>
                   </div>
-                  <p className="text-xs sm:text-sm text-stone-500 mt-1 max-w-2xl">
+                  <p className="text-xs text-stone-500 mt-0.5 line-clamp-1">
                     {currentCategoryObj.desc}
                   </p>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 flex-wrap shrink-0">
+              {/* Right: Action Buttons */}
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                 <button
                   type="button"
                   onClick={() => setIsSubCategoryModalOpen(true)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-800 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  title="Tambah atau kelola sub-kategori"
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Kelola Sub-Kategori"
                 >
-                  <Layers size={14} className="text-stone-600" />
-                  <span>Kelola Sub-Kategori</span>
+                  <Layers size={13} className="text-stone-500" />
+                  <span className="hidden sm:inline">Kelola Sub-Kategori</span>
+                  <span className="sm:hidden">Kelola</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleOpenAdd(currentCategoryObj.id, activeSubCategory !== 'all' ? activeSubCategory : null)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-stone-900 to-stone-800 hover:from-fuchsia-700 hover:to-rose-700 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-stone-900 to-stone-800 hover:from-amber-700 hover:to-rose-700 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
-                  <Upload size={14} />
+                  <Upload size={13} />
                   <span>Upload Foto</span>
                 </button>
               </div>
             </div>
-          </div>
 
-          {/* Sub-Category Filter Pills & Search */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            {/* Sub-Category Tabs */}
-            <div className="flex items-center gap-1.5 p-1 bg-stone-200/60 rounded-2xl w-fit self-start overflow-x-auto max-w-full">
-              <button
-                type="button"
-                onClick={() => setActiveSubCategory('all')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                  activeSubCategory === 'all' 
-                    ? 'bg-white text-stone-900 shadow-2xs' 
-                    : 'text-stone-600 hover:text-stone-900'
-                }`}
-              >
-                <span>Semua Sub-Kategori</span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                  activeSubCategory === 'all' ? 'bg-stone-900 text-white' : 'bg-stone-300 text-stone-700'
-                }`}>
-                  {safeItems.filter(i => i.categoryId === currentCategoryObj.id).length}
-                </span>
-              </button>
+            {/* Subtle Divider Line */}
+            <div className="h-px bg-stone-100" />
 
-              {(currentCategoryObj.subCategories || []).map(sub => {
-                const count = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === sub.id).length;
-                const isSelected = activeSubCategory === sub.id;
-                return (
-                  <button
-                    key={sub.id}
-                    type="button"
-                    onClick={() => setActiveSubCategory(sub.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                      isSelected 
-                        ? 'bg-white text-stone-900 shadow-2xs' 
-                        : 'text-stone-600 hover:text-stone-900'
-                    }`}
-                  >
-                    <span>{sub.label}</span>
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                      isSelected ? 'bg-stone-900 text-white' : 'bg-stone-300 text-stone-700'
-                    }`}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSubCategoryModalOpen(true);
-                  setIsAddingSubCat(true);
-                  setEditingSubCatId(null);
-                  setSubCatFormLabel('');
-                }}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-stone-600 hover:text-stone-900 hover:bg-white/60 transition flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                title="Tambah Sub-Kategori Baru"
-              >
-                <Plus size={13} />
-                <span className="hidden sm:inline">Sub-Kategori Baru</span>
-              </button>
-            </div>
-
-            {/* Live Search inside Category */}
-            <div className="relative w-full md:w-64">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-              <input
-                type="text"
-                placeholder="Cari dalam kategori ini..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 bg-white border border-[#EADBCE] rounded-xl text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800"
-              />
-              {searchQuery && (
-                <button 
+            {/* Bottom Row: Sub-Category Pills & Live Search */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Horizontal Scrollable Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 custom-scrollbar max-w-full">
+                <button
                   type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                  onClick={() => setActiveSubCategory('all')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                    activeSubCategory === 'all'
+                      ? 'bg-stone-900 text-white shadow-xs'
+                      : 'bg-stone-100/90 text-stone-600 hover:bg-stone-200/80 hover:text-stone-900'
+                  }`}
                 >
-                  <X size={12} />
+                  <span>Semua Sub-Kategori</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                    activeSubCategory === 'all' ? 'bg-white/20 text-white' : 'bg-white text-stone-700'
+                  }`}>
+                    {safeItems.filter(i => i.categoryId === currentCategoryObj.id).length}
+                  </span>
                 </button>
-              )}
+
+                {(currentCategoryObj.subCategories || []).map(sub => {
+                  const count = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === sub.id).length;
+                  const isSelected = activeSubCategory === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => setActiveSubCategory(sub.id)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                        isSelected
+                          ? 'bg-stone-900 text-white shadow-xs'
+                          : 'bg-stone-100/90 text-stone-600 hover:bg-stone-200/80 hover:text-stone-900'
+                      }`}
+                    >
+                      <span>{sub.label}</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                        isSelected ? 'bg-white/20 text-white' : 'bg-white text-stone-700'
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSubCategoryModalOpen(true);
+                    setIsAddingSubCat(true);
+                    setEditingSubCatId(null);
+                    setSubCatFormLabel('');
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-stone-500 hover:text-stone-900 hover:bg-stone-100 border border-dashed border-stone-300 transition flex items-center gap-1 cursor-pointer shrink-0"
+                  title="Tambah Sub-Kategori Baru"
+                >
+                  <Plus size={12} />
+                  <span>+ Sub-Kategori</span>
+                </button>
+              </div>
+
+              {/* Search input */}
+              <div className="relative w-full md:w-56 shrink-0">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                <input
+                  type="text"
+                  placeholder="Cari foto di sini..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-7 py-1.5 bg-stone-50 hover:bg-white focus:bg-white border border-stone-200 rounded-xl text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800 transition"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -700,7 +687,7 @@ export function MoodboardView({
                   <div key={sub.id} className="space-y-3">
                     <div className="flex items-center justify-between gap-3 border-b border-[#EADBCE] pb-2">
                       <div className="flex items-center gap-2">
-                        <Folder size={17} className="text-amber-700" />
+                        <Folder size={16} className="text-stone-400" />
                         <h3 className="text-sm sm:text-base font-extrabold text-stone-900 tracking-tight">
                           {sub.label}
                         </h3>
@@ -712,7 +699,7 @@ export function MoodboardView({
                       <button
                         type="button"
                         onClick={() => handleOpenAdd(currentCategoryObj.id, sub.id)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-bold text-amber-900 hover:bg-amber-100/60 border border-amber-200/80 transition flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg text-xs font-semibold text-stone-700 hover:text-stone-900 hover:bg-stone-100 border border-stone-200 transition flex items-center gap-1 cursor-pointer"
                       >
                         <Plus size={13} />
                         <span>Tambah Foto</span>
@@ -736,14 +723,16 @@ export function MoodboardView({
                     ) : (
                       <div 
                         onClick={() => handleOpenAdd(currentCategoryObj.id, sub.id)}
-                        className="p-8 rounded-3xl border-2 border-dashed border-stone-200 hover:border-amber-400 bg-white/50 hover:bg-amber-50/30 text-center transition cursor-pointer group"
+                        className="p-6 rounded-2xl border-2 border-dashed border-stone-200/90 hover:border-amber-400 bg-white/60 hover:bg-amber-50/20 text-center transition cursor-pointer group"
                       >
-                        <ImageIcon size={28} className="mx-auto text-stone-300 group-hover:text-amber-600 transition mb-2" />
+                        <div className="w-8 h-8 rounded-xl bg-stone-100 text-stone-400 group-hover:bg-amber-100 group-hover:text-amber-700 flex items-center justify-center mx-auto mb-2 transition">
+                          <Plus size={16} />
+                        </div>
                         <p className="text-xs font-bold text-stone-700">
                           Belum ada foto di "{sub.label}"
                         </p>
                         <p className="text-[11px] text-stone-400 mt-0.5">
-                          Klik untuk mengunggah foto gaun, dekorasi, atau inspirasi untuk sub-kategori ini.
+                          Klik untuk mengunggah foto inspirasi untuk sub-kategori ini.
                         </p>
                       </div>
                     )}
