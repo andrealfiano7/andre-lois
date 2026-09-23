@@ -330,11 +330,35 @@ export function useWeddingData() {
     setSyncStatus({ type: 'success', message: 'Seluruh checklist berhasil dikembalikan ke data template awal!' });
   }, []);
 
-  // Live Sync from Google Sheet
+  // Live Sync from Neon Database (with Google Sheet fallback)
   const syncFromGoogleSheet = useCallback(async () => {
     setIsSyncing(true);
     setSyncStatus(null);
     try {
+      // 1. Prioritaskan Live Sync langsung dari database Neon PostgreSQL
+      try {
+        const res = await fetch('/api/tasks');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+            setTasks(data.data);
+            const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+            const syncMsg = `Database Neon PostgreSQL (${timestamp})`;
+            setLastSync(syncMsg);
+            localStorage.setItem(LAST_SYNC_KEY, syncMsg);
+            setDbStatus({ connected: true, checking: false });
+            setSyncStatus({ 
+              type: 'success', 
+              message: `Neon DB Live Sync berhasil! ${data.data.length} tugas termutakhirkan secara realtime dari database cloud.` 
+            });
+            return;
+          }
+        }
+      } catch (dbErr) {
+        console.warn('Neon DB sync direct fetch failed, trying Google Sheet fallback:', dbErr);
+      }
+
+      // 2. Fallback ke Google Sheet jika API Neon offline atau di environment lokal tanpa backend
       let csvText = '';
       try {
         const res = await fetch(GOOGLE_SHEET_CSV_URL);
@@ -349,7 +373,7 @@ export function useWeddingData() {
         if (resProxy.ok) {
           csvText = await resProxy.text();
         } else {
-          throw new Error('Koneksi Google Sheet tidak merespon');
+          throw new Error('Koneksi server database & spreadsheet tidak merespon');
         }
       }
 

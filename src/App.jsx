@@ -537,22 +537,22 @@ export default function App() {
           </motion.button>
 
           {/* Utility Row */}
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={syncFromGoogleSheet}
               disabled={isSyncing}
-              className="py-1.5 px-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-100 text-stone-700 text-[11px] font-bold flex items-center justify-center gap-1.5 transition shadow-2xs disabled:opacity-50 cursor-pointer"
-              title="Sinkronkan data dari Google Spreadsheet"
+              className="flex-1 py-1.5 px-2.5 rounded-xl border border-stone-200 bg-white hover:bg-emerald-50/60 hover:border-emerald-300 text-stone-700 hover:text-emerald-800 text-[11px] font-bold flex items-center justify-center gap-1.5 transition shadow-2xs disabled:opacity-50 cursor-pointer min-w-0"
+              title="Sinkronkan data secara realtime dengan Neon PostgreSQL Database"
             >
-              <RefreshCw size={12} className={isSyncing ? 'animate-spin text-amber-600' : 'text-stone-500'} />
-              <span>{isSyncing ? 'Sinkron...' : 'Sinkron'}</span>
+              <RefreshCw size={12} className={isSyncing ? 'animate-spin text-emerald-600' : 'text-emerald-600'} />
+              <span className="truncate">{isSyncing ? 'Syncing...' : 'Neon DB Live Sync'}</span>
             </button>
 
             <button
               type="button"
               onClick={exportToCSV}
-              className="py-1.5 px-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-100 text-stone-700 text-[11px] font-bold flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer"
+              className="py-1.5 px-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-100 text-stone-700 text-[11px] font-bold flex items-center justify-center gap-1 transition shadow-2xs cursor-pointer shrink-0"
               title="Unduh data checklist sebagai CSV"
             >
               <Download size={12} className="text-stone-500" />
