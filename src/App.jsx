@@ -21,7 +21,7 @@ import { useCountdown } from './hooks/useCountdown';
 import { GOOGLE_SHEET_URL } from './data/initialTasks';
 import { INITIAL_PHOTO_LIST, INITIAL_RUNDOWN } from './data/otherSheets';
 import { INITIAL_LOGISTICS_LIST } from './data/initialLogistics';
-import { INITIAL_MOODBOARD_ITEMS, DEFAULT_MOODBOARD_CATEGORIES } from './data/initialMoodboard';
+import { INITIAL_MOODBOARD_ITEMS, DEFAULT_MOODBOARD_CATEGORIES, UNIFIED_SUB_CATEGORIES } from './data/initialMoodboard';
 import { StatsOverview } from './components/StatsOverview';
 import { ViewSwitcher } from './components/ViewSwitcher';
 import { FilterBar } from './components/FilterBar';
@@ -43,6 +43,44 @@ const LOGISTICS_STORAGE = 'wedding_logistics_v1';
 const MOODBOARD_STORAGE = 'wedding_moodboard_items_v1';
 const MOODBOARD_CATEGORIES_STORAGE = 'wedding_moodboard_categories_v1';
 
+// Mapping old subcategories to unified standard for automatic migration
+const OLD_SUB_MAP = {
+  // Holy Matrimony
+  'altar': 'holy-matrimony',
+  'gaun-pemberkatan': 'holy-matrimony',
+  'mua-pemberkatan': 'holy-matrimony',
+  'handbouquet': 'holy-matrimony',
+  'prosesi': 'holy-matrimony',
+  'holy-matrimony': 'holy-matrimony',
+
+  // Reception
+  'pelaminan': 'reception',
+  'lighting': 'reception',
+  'gaun-resepsi': 'reception',
+  'mua-resepsi': 'reception',
+  'pelaminan-pose': 'reception',
+  'cinematic': 'reception',
+  'reception': 'reception',
+
+  // Before Wedding
+  'flatlay': 'before-wedding',
+  'jas-pria': 'before-wedding',
+  'hairdo': 'before-wedding',
+  'boutonniere': 'before-wedding',
+  'before-wedding': 'before-wedding',
+
+  // After Party & General
+  'foyer': 'after-party',
+  'keluarga-bridesmaids': 'after-party',
+  'mua-keluarga': 'after-party',
+  'corsage': 'after-party',
+  'bunga-mobil': 'after-party',
+  'undangan-fisik': 'after-party',
+  'undangan-digital': 'after-party',
+  'souvenir': 'after-party',
+  'after-party': 'after-party'
+};
+
 const loadStorage = (key, fallback) => {
   try {
     const item = localStorage.getItem(key);
@@ -51,6 +89,67 @@ const loadStorage = (key, fallback) => {
     return Array.isArray(parsed) && parsed.length > 0 ? parsed : fallback;
   } catch {
     return fallback;
+  }
+};
+
+// Automatic migration for devices with existing moodboard categories in localStorage
+const loadAndMigrateMoodboardCategories = () => {
+  try {
+    const item = localStorage.getItem(MOODBOARD_CATEGORIES_STORAGE);
+    if (!item) return DEFAULT_MOODBOARD_CATEGORIES;
+    const parsed = JSON.parse(item);
+    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_MOODBOARD_CATEGORIES;
+
+    const migrated = parsed.map(cat => {
+      const def = DEFAULT_MOODBOARD_CATEGORIES.find(d => d.id === cat.id);
+      const customSubs = (cat.subCategories || []).filter(
+        s => !UNIFIED_SUB_CATEGORIES.some(u => u.id === s.id) && !OLD_SUB_MAP[s.id]
+      );
+      return {
+        ...cat,
+        desc: cat.desc || def?.desc || `Koleksi inspirasi dan konsep visual untuk ${cat.label}`,
+        subCategories: [...UNIFIED_SUB_CATEGORIES, ...customSubs]
+      };
+    });
+
+    localStorage.setItem(MOODBOARD_CATEGORIES_STORAGE, JSON.stringify(migrated));
+    return migrated;
+  } catch {
+    return DEFAULT_MOODBOARD_CATEGORIES;
+  }
+};
+
+// Automatic migration for devices with existing moodboard items in localStorage
+const loadAndMigrateMoodboardItems = () => {
+  try {
+    const item = localStorage.getItem(MOODBOARD_STORAGE);
+    if (!item) return INITIAL_MOODBOARD_ITEMS;
+    const parsed = JSON.parse(item);
+    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_MOODBOARD_ITEMS;
+
+    let hasChange = false;
+    const migrated = parsed.map(it => {
+      let subId = it.subCategoryId;
+      if (OLD_SUB_MAP[subId]) {
+        subId = OLD_SUB_MAP[subId];
+        hasChange = true;
+      }
+      if (!subId) {
+        subId = 'before-wedding';
+        hasChange = true;
+      }
+      return {
+        ...it,
+        subCategoryId: subId
+      };
+    });
+
+    if (hasChange) {
+      localStorage.setItem(MOODBOARD_STORAGE, JSON.stringify(migrated));
+    }
+    return migrated;
+  } catch {
+    return INITIAL_MOODBOARD_ITEMS;
   }
 };
 
@@ -97,9 +196,8 @@ export default function App() {
   // Other sheets data
   const [photoList, setPhotoList] = useState(() => loadStorage(PHOTO_STORAGE, INITIAL_PHOTO_LIST));
   const [rundownList, setRundownList] = useState(() => loadStorage(RUNDOWN_STORAGE, INITIAL_RUNDOWN));
-  const [logisticsList, setLogisticsList] = useState(() => loadStorage(LOGISTICS_STORAGE, INITIAL_LOGISTICS_LIST));
-  const [moodboardItems, setMoodboardItems] = useState(() => loadStorage(MOODBOARD_STORAGE, INITIAL_MOODBOARD_ITEMS));
-  const [moodboardCategories, setMoodboardCategories] = useState(() => loadStorage(MOODBOARD_CATEGORIES_STORAGE, DEFAULT_MOODBOARD_CATEGORIES));
+  const [moodboardItems, setMoodboardItems] = useState(() => loadAndMigrateMoodboardItems());
+  const [moodboardCategories, setMoodboardCategories] = useState(() => loadAndMigrateMoodboardCategories());
 
   // Realtime Live Sync for Rundown & Photos from Neon Database
   useEffect(() => {
@@ -592,8 +690,18 @@ export default function App() {
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
+                  onClick={syncFromGoogleSheet}
+                  disabled={isSyncing}
+                  className="p-1.5 rounded-xl border border-stone-200 bg-white text-emerald-700 text-xs font-bold flex items-center justify-center shadow-2xs cursor-pointer active:scale-95 transition"
+                  title="Sinkronkan dengan Neon DB"
+                >
+                  <RefreshCw size={13} className={isSyncing ? 'animate-spin text-emerald-600' : 'text-emerald-600'} />
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setIsDateModalOpen(true)}
-                  className="px-2.5 py-1 rounded-xl border border-stone-200 bg-white text-stone-800 text-xs font-bold flex items-center gap-1 shadow-2xs"
+                  className="px-2.5 py-1 rounded-xl border border-stone-200 bg-white text-stone-800 text-xs font-bold flex items-center gap-1 shadow-2xs cursor-pointer"
                   title="Ubah target tanggal Hari-H"
                 >
                   <CalendarDays size={12} className="text-amber-600" />
@@ -603,7 +711,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={openAddModal}
-                  className="p-1.5 rounded-xl bg-stone-900 text-white text-xs font-bold flex items-center justify-center shadow-xs"
+                  className="p-1.5 rounded-xl bg-stone-900 text-white text-xs font-bold flex items-center justify-center shadow-xs cursor-pointer"
                   title="Tambah Tugas"
                 >
                   <Plus size={15} />
