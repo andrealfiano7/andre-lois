@@ -73,3 +73,9 @@ model MoodboardItem {
   @@index([categoryId])
   @@index([subCategoryId])
 }
+
+model AppSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}

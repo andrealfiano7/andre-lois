@@ -259,6 +259,20 @@ export default function App() {
         .catch(() => {});
     };
 
+    const syncMoodboardCategories = () => {
+      fetch('/api/moodboard-categories')
+        .then(res => res.json())
+        .then(data => {
+          if (!isMounted || !data.success || !Array.isArray(data.data) || data.data.length === 0) return;
+          setMoodboardCategories(prev => {
+            const prevStr = JSON.stringify(prev);
+            const nextStr = JSON.stringify(data.data);
+            return prevStr !== nextStr ? data.data : prev;
+          });
+        })
+        .catch(() => {});
+    };
+
     const syncMoodboard = () => {
       fetch('/api/moodboard')
         .then(res => res.json())
@@ -276,18 +290,7 @@ export default function App() {
               }).catch(() => {});
             }
           } else {
-            // If local storage has items that DB doesn't have yet (e.g. uploaded recently before cloud sync)
-            const local = loadAndMigrateMoodboardItems();
-            const dbIds = new Set(data.data.map(i => i.id));
-            const unsynced = local.filter(i => !dbIds.has(i.id));
-            if (unsynced.length > 0) {
-              fetch('/api/moodboard', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(unsynced)
-              }).catch(() => {});
-            }
-
+            // Neon DB is source of truth
             setMoodboardItems(prev => {
               const prevStr = JSON.stringify(prev);
               const nextStr = JSON.stringify(data.data);
@@ -302,12 +305,14 @@ export default function App() {
     syncRundown();
     syncPhotos();
     syncMoodboard();
+    syncMoodboardCategories();
 
     // Poll for updates every 4 seconds
     const interval = setInterval(() => {
       syncRundown();
       syncPhotos();
       syncMoodboard();
+      syncMoodboardCategories();
     }, 4000);
 
     // Sync immediately on focus or tab visibility change
@@ -316,6 +321,7 @@ export default function App() {
         syncRundown();
         syncPhotos();
         syncMoodboard();
+        syncMoodboardCategories();
       }
     };
     window.addEventListener('focus', handleActiveSync);
@@ -454,10 +460,20 @@ export default function App() {
 
   const handleMoodboardCategoriesChange = (newList) => {
     setMoodboardCategories(newList);
+    fetch('/api/moodboard-categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newList)
+    }).catch(() => {});
   };
 
   const handleResetMoodboardCategories = () => {
     setMoodboardCategories(DEFAULT_MOODBOARD_CATEGORIES);
+    fetch('/api/moodboard-categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(DEFAULT_MOODBOARD_CATEGORIES)
+    }).catch(() => {});
     setSyncStatus({ type: 'success', message: 'Kategori moodboard dikembalikan ke bawaan template!' });
   };
 

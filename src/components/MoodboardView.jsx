@@ -27,7 +27,8 @@ import {
   Bookmark,
   Play,
   Video,
-  Film
+  Film,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { COLOR_PRESETS, DEFAULT_MOODBOARD_CATEGORIES, UNIFIED_SUB_CATEGORIES } from '../data/initialMoodboard';
@@ -123,6 +124,12 @@ export function MoodboardView({
   const [editingSubCatId, setEditingSubCatId] = useState(null);
   const [subCatFormLabel, setSubCatFormLabel] = useState('');
   const [isAddingSubCat, setIsAddingSubCat] = useState(false);
+
+  // In-App Confirmation States (No window.confirm!)
+  const [subCatToDelete, setSubCatToDelete] = useState(null);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // Mapping old subcategories to unified subcategories
   const OLD_SUB_MAP = useMemo(() => ({
@@ -527,15 +534,19 @@ export function MoodboardView({
     setIsUploadModalOpen(false);
   };
 
-  // Delete Item
+  // Delete Item (State-driven confirmation, no window.confirm)
   const handleDeleteItem = (id, title) => {
-    const itemLabel = title || 'foto ini';
-    if (window.confirm(`Hapus inspirasi "${itemLabel}" dari moodboard?`)) {
-      const updated = safeItems.filter(i => i.id !== id);
-      onChangeItems?.(updated);
-      fetch(`/api/moodboard?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
-      if (detailItem?.id === id) setDetailItem(null);
-    }
+    setItemToDelete({ id, title: title || 'foto ini' });
+  };
+
+  const confirmDeleteItem = () => {
+    if (!itemToDelete) return;
+    const { id } = itemToDelete;
+    const updated = safeItems.filter(i => i.id !== id);
+    onChangeItems?.(updated);
+    fetch(`/api/moodboard?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+    if (detailItem?.id === id) setDetailItem(null);
+    setItemToDelete(null);
   };
 
   // Download Image from Detail Popup
@@ -590,7 +601,7 @@ export function MoodboardView({
     setCategoryFormData({ id: '', label: '', desc: '', color: 'amber' });
   };
 
-  // Category Manager: Delete Category
+  // Category Manager: Delete Category (State-driven confirmation)
   const handleDeleteCategory = (catId, catLabel) => {
     if (safeCategories.length <= 1) {
       alert('Minimal harus ada satu kategori dalam moodboard.');
@@ -598,33 +609,38 @@ export function MoodboardView({
     }
 
     const itemsInCat = safeItems.filter(i => i.categoryId === catId);
-    let confirmMsg = `Hapus kategori "${catLabel}"?`;
-    if (itemsInCat.length > 0) {
-      const fallbackCat = safeCategories.find(c => c.id !== catId);
-      confirmMsg += `\n\nPerhatian: ${itemsInCat.length} foto dalam kategori ini akan otomatis dipindahkan ke kategori "${fallbackCat?.label}".`;
-    }
+    const fallbackCat = safeCategories.find(c => c.id !== catId);
+    setCategoryToDelete({ 
+      id: catId, 
+      label: catLabel, 
+      itemCount: itemsInCat.length, 
+      fallback: fallbackCat 
+    });
+  };
 
-    if (window.confirm(confirmMsg)) {
-      const fallbackCat = safeCategories.find(c => c.id !== catId);
-      if (itemsInCat.length > 0 && fallbackCat) {
-        const updatedItems = safeItems.map(item => {
-          if (item.categoryId === catId) {
-            return { 
-              ...item, 
-              categoryId: fallbackCat.id,
-              subCategoryId: fallbackCat.subCategories?.[0]?.id || 'utama'
-            };
-          }
-          return item;
-        });
-        onChangeItems?.(updatedItems);
-      }
-      const updatedCategories = safeCategories.filter(c => c.id !== catId);
-      onChangeCategories?.(updatedCategories);
-      if (activeCategoryView === catId) {
-        setActiveCategoryView(null);
-      }
+  const confirmDeleteCategory = () => {
+    if (!categoryToDelete) return;
+    const { id: catId, itemCount, fallback: fallbackCat } = categoryToDelete;
+
+    if (itemCount > 0 && fallbackCat) {
+      const updatedItems = safeItems.map(item => {
+        if (item.categoryId === catId) {
+          return { 
+            ...item, 
+            categoryId: fallbackCat.id,
+            subCategoryId: fallbackCat.subCategories?.[0]?.id || 'before-wedding'
+          };
+        }
+        return item;
+      });
+      onChangeItems?.(updatedItems);
     }
+    const updatedCategories = safeCategories.filter(c => c.id !== catId);
+    onChangeCategories?.(updatedCategories);
+    if (activeCategoryView === catId) {
+      setActiveCategoryView(null);
+    }
+    setCategoryToDelete(null);
   };
 
   // Sub-Category Manager: Add or Edit Sub-Category (Synchronized across all categories)
@@ -661,7 +677,7 @@ export function MoodboardView({
     setSubCatFormLabel('');
   };
 
-  // Sub-Category Manager: Delete Sub-Category (Synchronized across all categories)
+  // Sub-Category Manager: Trigger Delete Confirmation (State-driven)
   const handleDeleteSubCategory = (subCatId, subCatLabel) => {
     const sampleSubs = currentCategoryObj?.subCategories || safeCategories[0]?.subCategories || [];
     if (sampleSubs.length <= 1) {
@@ -670,32 +686,45 @@ export function MoodboardView({
     }
 
     const itemsInSub = safeItems.filter(i => i.subCategoryId === subCatId);
-    let confirmMsg = `Hapus sub-kategori "${subCatLabel}" dari semua kategori?`;
-    if (itemsInSub.length > 0) {
-      const fallbackSub = sampleSubs.find(s => s.id !== subCatId);
-      confirmMsg += `\n\nPerhatian: ${itemsInSub.length} foto dalam sub-kategori ini akan otomatis dipindahkan ke sub-kategori "${fallbackSub?.label}".`;
+    const fallbackSub = sampleSubs.find(s => s.id !== subCatId);
+    setSubCatToDelete({
+      id: subCatId,
+      label: subCatLabel,
+      count: itemsInSub.length,
+      fallback: fallbackSub
+    });
+  };
+
+  // Sub-Category Manager: Confirm Delete Sub-Category (Instantly syncs to all categories)
+  const confirmDeleteSubCategory = (subCatId) => {
+    const sampleSubs = currentCategoryObj?.subCategories || safeCategories[0]?.subCategories || [];
+    if (sampleSubs.length <= 1) return;
+
+    const fallbackSub = sampleSubs.find(s => s.id !== subCatId);
+    const itemsInSub = safeItems.filter(i => i.subCategoryId === subCatId);
+
+    // If there are items in this subcategory, re-assign them to fallback
+    if (itemsInSub.length > 0 && fallbackSub) {
+      const updatedItems = safeItems.map(item => {
+        if (item.subCategoryId === subCatId) {
+          return { ...item, subCategoryId: fallbackSub.id };
+        }
+        return item;
+      });
+      onChangeItems?.(updatedItems);
     }
 
-    if (window.confirm(confirmMsg)) {
-      const fallbackSub = sampleSubs.find(s => s.id !== subCatId);
-      if (itemsInSub.length > 0 && fallbackSub) {
-        const updatedItems = safeItems.map(item => {
-          if (item.subCategoryId === subCatId) {
-            return { ...item, subCategoryId: fallbackSub.id };
-          }
-          return item;
-        });
-        onChangeItems?.(updatedItems);
-      }
-      const updatedCategories = safeCategories.map(c => ({
-        ...c,
-        subCategories: (c.subCategories || []).filter(s => s.id !== subCatId)
-      }));
-      onChangeCategories?.(updatedCategories);
-      if (activeSubCategory === subCatId) {
-        setActiveSubCategory('all');
-      }
+    // Remove this subcategory from ALL categories uniformly
+    const updatedCategories = safeCategories.map(c => ({
+      ...c,
+      subCategories: (c.subCategories || []).filter(s => s.id !== subCatId)
+    }));
+    onChangeCategories?.(updatedCategories);
+
+    if (activeSubCategory === subCatId) {
+      setActiveSubCategory('all');
     }
+    setSubCatToDelete(null);
   };
 
   // Get cover image(s) for a category
@@ -1825,6 +1854,60 @@ export function MoodboardView({
                       {(currentCategoryObj.subCategories || []).map(sub => {
                         const count = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === sub.id).length;
                         const totalCount = safeItems.filter(i => i.subCategoryId === sub.id).length;
+                        const isConfirmingDelete = subCatToDelete?.id === sub.id;
+
+                        if (isConfirmingDelete) {
+                          return (
+                            <div 
+                              key={sub.id}
+                              className="p-3.5 bg-rose-50/95 border-l-4 border-rose-500 space-y-2.5 transition-all"
+                            >
+                              <div className="flex items-start gap-2.5">
+                                <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-rose-950">
+                                    Hapus sub-kategori &ldquo;{sub.label}&rdquo;?
+                                  </p>
+                                  {totalCount > 0 ? (
+                                    <p className="text-[11px] text-rose-700 mt-0.5 leading-snug">
+                                      Perhatian: {totalCount} foto/video akan otomatis dialihkan ke &ldquo;{subCatToDelete.fallback?.label || 'sub-kategori lain'}&rdquo;.
+                                    </p>
+                                  ) : (
+                                    <p className="text-[11px] text-rose-600 mt-0.5">
+                                      Sub-kategori ini kosong dan akan langsung dihapus dari seluruh kategori.
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-end gap-2 pt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    setSubCatToDelete(null);
+                                  }}
+                                  className="px-3 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-200/60 rounded-xl transition cursor-pointer"
+                                >
+                                  Batal
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    confirmDeleteSubCategory(sub.id);
+                                  }}
+                                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                                >
+                                  <Trash2 size={12} />
+                                  <span>Ya, Hapus</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }
+
                         return (
                           <div 
                             key={sub.id}
@@ -1851,6 +1934,7 @@ export function MoodboardView({
                                   setIsAddingSubCat(false);
                                   setEditingSubCatId(sub.id);
                                   setSubCatFormLabel(sub.label);
+                                  setSubCatToDelete(null);
                                 }}
                                 className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
                                 title="Edit Sub-Kategori"
@@ -2045,6 +2129,60 @@ export function MoodboardView({
                         const count = safeItems.filter(i => i.categoryId === cat.id).length;
                         const preset = COLOR_PRESETS.find(p => p.id === cat.color) || COLOR_PRESETS[0];
 
+                        const isConfirmingCatDelete = categoryToDelete?.id === cat.id;
+
+                        if (isConfirmingCatDelete) {
+                          return (
+                            <div 
+                              key={cat.id}
+                              className="p-3.5 bg-rose-50/95 border-l-4 border-rose-500 space-y-2.5 transition-all"
+                            >
+                              <div className="flex items-start gap-2.5">
+                                <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-rose-950">
+                                    Hapus kategori &ldquo;{cat.label}&rdquo;?
+                                  </p>
+                                  {count > 0 ? (
+                                    <p className="text-[11px] text-rose-700 mt-0.5 leading-snug">
+                                      Perhatian: {count} foto akan dipindahkan ke kategori &ldquo;{categoryToDelete.fallback?.label || 'lainnya'}&rdquo;.
+                                    </p>
+                                  ) : (
+                                    <p className="text-[11px] text-rose-600 mt-0.5">
+                                      Kategori ini kosong dan akan langsung dihapus.
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-end gap-2 pt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    setCategoryToDelete(null);
+                                  }}
+                                  className="px-3 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-200/60 rounded-xl transition cursor-pointer"
+                                >
+                                  Batal
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    confirmDeleteCategory();
+                                  }}
+                                  className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                                >
+                                  <Trash2 size={12} />
+                                  <span>Ya, Hapus</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }
+
                         return (
                           <div 
                             key={cat.id}
@@ -2074,6 +2212,7 @@ export function MoodboardView({
                                     desc: cat.desc || '',
                                     color: cat.color || 'amber'
                                   });
+                                  setCategoryToDelete(null);
                                 }}
                                 className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
                                 title="Edit Kategori"
@@ -2099,18 +2238,37 @@ export function MoodboardView({
                 {/* Footer */}
                 <div className="px-5 py-3 border-t border-stone-100 bg-stone-50/80 flex items-center justify-between shrink-0">
                   {onResetToDefault ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (window.confirm('Kembalikan kategori moodboard ke kategori bawaan template?')) {
-                          onResetToDefault();
-                        }
-                      }}
-                      className="text-xs text-stone-500 hover:text-stone-800 font-medium flex items-center gap-1 cursor-pointer"
-                    >
-                      <RotateCcw size={12} />
-                      <span>Reset Bawaan</span>
-                    </button>
+                    showResetConfirm ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-rose-600">Reset ke bawaan?</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowResetConfirm(false)}
+                          className="px-2 py-1 text-[11px] font-semibold text-stone-600 hover:bg-stone-200/60 rounded-lg transition cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onResetToDefault();
+                            setShowResetConfirm(false);
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition cursor-pointer shadow-2xs"
+                        >
+                          Ya, Reset
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowResetConfirm(true)}
+                        className="text-xs text-stone-500 hover:text-stone-800 font-medium flex items-center gap-1 cursor-pointer"
+                      >
+                        <RotateCcw size={12} />
+                        <span>Reset Bawaan</span>
+                      </button>
+                    )
                   ) : <div />}
                   <button
                     type="button"
@@ -2118,10 +2276,62 @@ export function MoodboardView({
                       setIsCategoryModalOpen(false);
                       setIsAddingCategory(false);
                       setEditingCategoryId(null);
+                      setCategoryToDelete(null);
+                      setShowResetConfirm(false);
                     }}
                     className="px-4 py-1.5 rounded-xl bg-stone-900 text-white font-bold text-xs hover:bg-stone-800 transition cursor-pointer"
                   >
                     Selesai
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 5: CONFIRM DELETE ITEM DIALOG                                       */}
+      {/* ========================================================================= */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {itemToDelete && (
+            <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs overscroll-contain">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                transition={{ duration: 0.15 }}
+                className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-stone-200 p-5 space-y-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200">
+                    <Trash2 size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-bold text-stone-900">Hapus Inspirasi?</h4>
+                    <p className="text-xs text-stone-500 truncate mt-0.5">{itemToDelete.title || 'Foto tanpa judul'}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Inspirasi foto/video ini akan dihapus secara permanen dari moodboard dan cloud database.
+                </p>
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setItemToDelete(null)}
+                    className="px-3.5 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmDeleteItem}
+                    className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Trash2 size={13} />
+                    <span>Ya, Hapus</span>
                   </button>
                 </div>
               </motion.div>
