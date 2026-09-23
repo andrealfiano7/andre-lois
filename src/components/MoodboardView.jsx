@@ -566,23 +566,44 @@ export function MoodboardView({
                 </div>
               </div>
 
-              {/* Right: Action Buttons */}
-              <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              {/* Right: Search + Action Buttons */}
+              <div className="flex items-center gap-2 shrink-0 self-end md:self-auto flex-wrap sm:flex-nowrap">
+                {/* Search input */}
+                <div className="relative w-44 sm:w-52 shrink-0">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari foto di sini..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-7 py-1.5 bg-stone-50 hover:bg-white focus:bg-white border border-stone-200 rounded-xl text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800 transition"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+
                 <button
                   type="button"
                   onClick={() => setIsSubCategoryModalOpen(true)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
                   title="Kelola Sub-Kategori"
                 >
                   <Layers size={13} className="text-stone-500" />
-                  <span className="hidden sm:inline">Kelola Sub-Kategori</span>
-                  <span className="sm:hidden">Kelola</span>
+                  <span className="hidden lg:inline">Kelola Sub-Kategori</span>
+                  <span className="lg:hidden">Sub-Kat</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleOpenAdd(currentCategoryObj.id, activeSubCategory !== 'all' ? activeSubCategory : null)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-stone-900 to-stone-800 hover:from-amber-700 hover:to-rose-700 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-stone-900 hover:bg-stone-800 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
                   <Upload size={13} />
                   <span>Upload Foto</span>
@@ -593,87 +614,63 @@ export function MoodboardView({
             {/* Subtle Divider Line */}
             <div className="h-px bg-stone-100" />
 
-            {/* Bottom Row: Sub-Category Pills & Live Search */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              {/* Horizontal Scrollable Pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 custom-scrollbar max-w-full">
-                <button
-                  type="button"
-                  onClick={() => setActiveSubCategory('all')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                    activeSubCategory === 'all'
-                      ? 'bg-stone-900 text-white shadow-xs'
-                      : 'bg-stone-100/90 text-stone-600 hover:bg-stone-200/80 hover:text-stone-900'
-                  }`}
-                >
-                  <span>Semua Sub-Kategori</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
-                    activeSubCategory === 'all' ? 'bg-white/20 text-white' : 'bg-white text-stone-700'
-                  }`}>
-                    {safeItems.filter(i => i.categoryId === currentCategoryObj.id).length}
-                  </span>
-                </button>
+            {/* Bottom Row: Sub-Category Pills (Wrapping naturally, NO horizontal sliding!) */}
+            <div className="flex flex-wrap items-center gap-2 pt-0.5">
+              <button
+                type="button"
+                onClick={() => setActiveSubCategory('all')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  activeSubCategory === 'all'
+                    ? 'bg-stone-900 text-white shadow-xs'
+                    : 'bg-stone-100/90 text-stone-600 hover:bg-stone-200/80 hover:text-stone-900 border border-stone-200/60'
+                }`}
+              >
+                <span>Semua Sub-Kategori</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                  activeSubCategory === 'all' ? 'bg-white/20 text-white' : 'bg-white text-stone-700 border border-stone-200/60'
+                }`}>
+                  {safeItems.filter(i => i.categoryId === currentCategoryObj.id).length}
+                </span>
+              </button>
 
-                {(currentCategoryObj.subCategories || []).map(sub => {
-                  const count = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === sub.id).length;
-                  const isSelected = activeSubCategory === sub.id;
-                  return (
-                    <button
-                      key={sub.id}
-                      type="button"
-                      onClick={() => setActiveSubCategory(sub.id)}
-                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                        isSelected
-                          ? 'bg-stone-900 text-white shadow-xs'
-                          : 'bg-stone-100/90 text-stone-600 hover:bg-stone-200/80 hover:text-stone-900'
-                      }`}
-                    >
-                      <span>{sub.label}</span>
-                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
-                        isSelected ? 'bg-white/20 text-white' : 'bg-white text-stone-700'
-                      }`}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSubCategoryModalOpen(true);
-                    setIsAddingSubCat(true);
-                    setEditingSubCatId(null);
-                    setSubCatFormLabel('');
-                  }}
-                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-stone-500 hover:text-stone-900 hover:bg-stone-100 border border-dashed border-stone-300 transition flex items-center gap-1 cursor-pointer shrink-0"
-                  title="Tambah Sub-Kategori Baru"
-                >
-                  <Plus size={12} />
-                  <span>+ Sub-Kategori</span>
-                </button>
-              </div>
-
-              {/* Search input */}
-              <div className="relative w-full md:w-56 shrink-0">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-                <input
-                  type="text"
-                  placeholder="Cari foto di sini..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-7 py-1.5 bg-stone-50 hover:bg-white focus:bg-white border border-stone-200 rounded-xl text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800 transition"
-                />
-                {searchQuery && (
+              {(currentCategoryObj.subCategories || []).map(sub => {
+                const count = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === sub.id).length;
+                const isSelected = activeSubCategory === sub.id;
+                return (
                   <button
+                    key={sub.id}
                     type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 cursor-pointer"
+                    onClick={() => setActiveSubCategory(sub.id)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      isSelected
+                        ? 'bg-stone-900 text-white shadow-xs'
+                        : 'bg-stone-100/90 text-stone-600 hover:bg-stone-200/80 hover:text-stone-900 border border-stone-200/60'
+                    }`}
                   >
-                    <X size={12} />
+                    <span>{sub.label}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                      isSelected ? 'bg-white/20 text-white' : 'bg-white text-stone-700 border border-stone-200/60'
+                    }`}>
+                      {count}
+                    </span>
                   </button>
-                )}
-              </div>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSubCategoryModalOpen(true);
+                  setIsAddingSubCat(true);
+                  setEditingSubCatId(null);
+                  setSubCatFormLabel('');
+                }}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-stone-500 hover:text-stone-900 hover:bg-stone-100 border border-dashed border-stone-300 transition flex items-center gap-1 cursor-pointer"
+                title="Tambah Sub-Kategori Baru"
+              >
+                <Plus size={12} />
+                <span>+ Sub-Kategori</span>
+              </button>
             </div>
           </div>
 
