@@ -12,56 +12,78 @@ export const COLOR_PRESETS = [
   { id: 'teal', label: 'Teal Cyan', bg: 'bg-teal-500', badgeColor: 'bg-teal-50 text-teal-900 border-teal-200' }
 ];
 
-// Sub-kategori seragam yang diterapkan di seluruh kategori moodboard
-export const UNIFIED_SUB_CATEGORIES = [
-  { id: 'before-wedding', label: 'Before Wedding' },
-  { id: 'holy-matrimony', label: 'Holy Matrimony' },
-  { id: 'reception', label: 'Reception' },
-  { id: 'after-party', label: 'After Party & General' }
-];
-
 export const DEFAULT_MOODBOARD_CATEGORIES = [
   { 
     id: 'dekorasi', 
     label: 'Dekorasi & Pelaminan', 
     color: 'amber',
     desc: 'Konsep dekorasi pelaminan, altar pemberkatan, foyer entrance, photo booth & table setting.',
-    subCategories: [...UNIFIED_SUB_CATEGORIES]
+    subCategories: [
+      { id: 'altar', label: 'Altar & Pemberkatan' },
+      { id: 'pelaminan', label: 'Pelaminan Resepsi' },
+      { id: 'foyer', label: 'Foyer, Gate & Entrance' },
+      { id: 'photobooth', label: 'Photo Booth & Gallery' },
+      { id: 'table-setting', label: 'Table Setting & Ambient' }
+    ]
   },
   { 
     id: 'busana', 
     label: 'Busana & Gaun Pengantin', 
     color: 'rose',
     desc: 'Gaun pengantin pemberkatan, gaun resepsi malam, jas tuxedo pria & seragam keluarga.',
-    subCategories: [...UNIFIED_SUB_CATEGORIES]
+    subCategories: [
+      { id: 'gaun-pemberkatan', label: 'Gaun Holy Matrimony' },
+      { id: 'gaun-resepsi', label: 'Gaun Resepsi Malam' },
+      { id: 'jas-pria', label: 'Jas & Tuxedo Groom' },
+      { id: 'seragam-keluarga', label: 'Bridesmaids & Keluarga' }
+    ]
   },
   { 
     id: 'makeup', 
     label: 'Makeup & Hairdo', 
     color: 'purple',
     desc: 'Riasan wajah bride, tata rambut updo/down, aksesoris tiara, retouch & makeup keluarga.',
-    subCategories: [...UNIFIED_SUB_CATEGORIES]
+    subCategories: [
+      { id: 'mua-pemberkatan', label: 'Makeup Holy Matrimony' },
+      { id: 'mua-resepsi', label: 'Makeup Resepsi Malam' },
+      { id: 'hairdo-aksesoris', label: 'Hairdo & Aksesoris' },
+      { id: 'mua-keluarga', label: 'Makeup Mama & Bridesmaids' }
+    ]
   },
   { 
     id: 'bunga', 
     label: 'Bunga & Handbouquet', 
     color: 'emerald',
     desc: 'Buket bunga tangan pengantin wanita, boutonniere jas pria, corsage & dekorasi mobil pengantin.',
-    subCategories: [...UNIFIED_SUB_CATEGORIES]
+    subCategories: [
+      { id: 'handbouquet', label: 'Handbouquet Bride' },
+      { id: 'boutonniere', label: 'Boutonniere Jas Pria' },
+      { id: 'corsage', label: 'Corsage & Bunga Meja' },
+      { id: 'bunga-mobil', label: 'Dekorasi Bunga Mobil' }
+    ]
   },
   { 
     id: 'undangan', 
     label: 'Undangan & Souvenir', 
     color: 'sky',
     desc: 'Desain undangan fisik foil/wax seal, undangan website digital & souvenir cinderamata tamu.',
-    subCategories: [...UNIFIED_SUB_CATEGORIES]
+    subCategories: [
+      { id: 'undangan-fisik', label: 'Desain Undangan Cetak' },
+      { id: 'undangan-digital', label: 'Undangan Digital Website' },
+      { id: 'souvenir', label: 'Souvenir & Cinderamata' }
+    ]
   },
   { 
     id: 'dokumentasi', 
     label: 'Foto & Dokumentasi', 
     color: 'orange',
     desc: 'Inspirasi shot list foto flatlay cincin, prosesi sakral, pose pelaminan & video sinematik.',
-    subCategories: [...UNIFIED_SUB_CATEGORIES]
+    subCategories: [
+      { id: 'flatlay', label: 'Flatlay Ring & Detail' },
+      { id: 'prosesi', label: 'Prosesi Holy Matrimony' },
+      { id: 'pelaminan-pose', label: 'Pose Pelaminan & Resepsi' },
+      { id: 'cinematic', label: 'Video Teaser & Highlight' }
+    ]
   }
 ];
 

@@ -31,7 +31,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { COLOR_PRESETS, DEFAULT_MOODBOARD_CATEGORIES, UNIFIED_SUB_CATEGORIES } from '../data/initialMoodboard';
+import { COLOR_PRESETS, DEFAULT_MOODBOARD_CATEGORIES } from '../data/initialMoodboard';
 import { parseVideoUrl, isVideoUrl } from '../utils/videoHelper';
 
 // Helper to compress local image files via Canvas
@@ -131,68 +131,24 @@ export function MoodboardView({
   const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  // Mapping old subcategories to unified subcategories
-  const OLD_SUB_MAP = useMemo(() => ({
-    // Holy Matrimony
-    'altar': 'holy-matrimony',
-    'gaun-pemberkatan': 'holy-matrimony',
-    'mua-pemberkatan': 'holy-matrimony',
-    'handbouquet': 'holy-matrimony',
-    'prosesi': 'holy-matrimony',
-    'holy-matrimony': 'holy-matrimony',
-
-    // Reception
-    'pelaminan': 'reception',
-    'lighting': 'reception',
-    'gaun-resepsi': 'reception',
-    'mua-resepsi': 'reception',
-    'pelaminan-pose': 'reception',
-    'cinematic': 'reception',
-    'reception': 'reception',
-
-    // Before Wedding
-    'flatlay': 'before-wedding',
-    'jas-pria': 'before-wedding',
-    'hairdo': 'before-wedding',
-    'boutonniere': 'before-wedding',
-    'before-wedding': 'before-wedding',
-
-    // After Party & General
-    'foyer': 'after-party',
-    'keluarga-bridesmaids': 'after-party',
-    'mua-keluarga': 'after-party',
-    'corsage': 'after-party',
-    'bunga-mobil': 'after-party',
-    'undangan-fisik': 'after-party',
-    'undangan-digital': 'after-party',
-    'souvenir': 'after-party',
-    'after-party': 'after-party'
+  // Category-specific fallback mappings for legacy item subcategory ids
+  const CATEGORY_SUB_FALLBACK = useMemo(() => ({
+    dekorasi: { 'holy-matrimony': 'altar', 'reception': 'pelaminan', 'before-wedding': 'foyer', 'after-party': 'photobooth' },
+    busana: { 'holy-matrimony': 'gaun-pemberkatan', 'reception': 'gaun-resepsi', 'before-wedding': 'jas-pria', 'after-party': 'seragam-keluarga' },
+    makeup: { 'holy-matrimony': 'mua-pemberkatan', 'reception': 'mua-resepsi', 'before-wedding': 'hairdo-aksesoris', 'after-party': 'mua-keluarga' },
+    bunga: { 'holy-matrimony': 'handbouquet', 'reception': 'corsage', 'before-wedding': 'boutonniere', 'after-party': 'bunga-mobil' },
+    undangan: { 'holy-matrimony': 'undangan-fisik', 'reception': 'souvenir', 'before-wedding': 'undangan-digital', 'after-party': 'souvenir' },
+    dokumentasi: { 'holy-matrimony': 'prosesi', 'reception': 'pelaminan-pose', 'before-wedding': 'flatlay', 'after-party': 'cinematic' }
   }), []);
 
-  // Unified normalization for categories: all categories share identical sub-categories
+  // Independent normalization for categories: each category maintains its own sub-categories
   const safeCategories = useMemo(() => {
     const raw = Array.isArray(categories) && categories.length > 0 ? categories : DEFAULT_MOODBOARD_CATEGORIES;
     return raw.map(cat => {
       const def = DEFAULT_MOODBOARD_CATEGORIES.find(d => d.id === cat.id);
-      
       let currentSubs = cat.subCategories;
       if (!Array.isArray(currentSubs) || currentSubs.length === 0) {
-        currentSubs = [...UNIFIED_SUB_CATEGORIES];
-      } else {
-        const seen = new Set();
-        const mappedSubs = [];
-        for (const sub of currentSubs) {
-          const targetId = OLD_SUB_MAP[sub.id] || sub.id;
-          if (seen.has(targetId)) continue;
-          seen.add(targetId);
-
-          const unifiedDef = UNIFIED_SUB_CATEGORIES.find(u => u.id === targetId);
-          mappedSubs.push({
-            id: targetId,
-            label: sub.label && sub.label !== sub.id ? sub.label : (unifiedDef ? unifiedDef.label : targetId)
-          });
-        }
-        currentSubs = mappedSubs.length > 0 ? mappedSubs : [...UNIFIED_SUB_CATEGORIES];
+        currentSubs = def?.subCategories || [{ id: 'utama', label: 'Inspirasi Utama' }];
       }
 
       return {
@@ -201,18 +157,20 @@ export function MoodboardView({
         subCategories: currentSubs
       };
     });
-  }, [categories, OLD_SUB_MAP]);
+  }, [categories]);
 
-  // Backward compatibility normalization for items (including video detection & subcategory mapping)
+  // Backward compatibility normalization for items (including video detection & category-specific subcategory mapping)
   const safeItems = useMemo(() => {
     const raw = Array.isArray(items) ? items : [];
     return raw.map(item => {
       let subId = item.subCategoryId;
-      if (OLD_SUB_MAP[subId]) {
-        subId = OLD_SUB_MAP[subId];
+      const catMap = CATEGORY_SUB_FALLBACK[item.categoryId];
+      if (catMap && catMap[subId]) {
+        subId = catMap[subId];
       }
       if (!subId) {
-        subId = 'before-wedding';
+        const cat = safeCategories.find(c => c.id === item.categoryId);
+        subId = cat?.subCategories?.[0]?.id || 'altar';
       }
 
       const videoInfo = item.videoUrl ? parseVideoUrl(item.videoUrl) : parseVideoUrl(item.imageUrl);
@@ -225,7 +183,7 @@ export function MoodboardView({
         videoUrl: item.videoUrl || (videoInfo ? videoInfo.originalUrl : '')
       };
     });
-  }, [items, OLD_SUB_MAP]);
+  }, [items, safeCategories, CATEGORY_SUB_FALLBACK]);
 
   // Current active category object
   const currentCategoryObj = useMemo(() => {
@@ -244,11 +202,9 @@ export function MoodboardView({
   };
 
   const getSubCategoryLabel = (catId, subCatId) => {
-    const unified = UNIFIED_SUB_CATEGORIES.find(s => s.id === subCatId);
-    if (unified) return unified.label;
     const cat = getCategory(catId);
     const sub = cat.subCategories?.find(s => s.id === subCatId);
-    return sub?.label || 'Before Wedding';
+    return sub?.label || cat.subCategories?.[0]?.label || 'Inspirasi';
   };
 
   const getCategoryBadgeClass = (catId) => {
@@ -643,29 +599,32 @@ export function MoodboardView({
     setCategoryToDelete(null);
   };
 
-  // Sub-Category Manager: Add or Edit Sub-Category (Synchronized across all categories)
+  // Sub-Category Manager: Add or Edit Sub-Category (Scoped strictly to current active category)
   const handleSaveSubCategory = (e) => {
     e.preventDefault();
-    if (!subCatFormLabel.trim()) return;
+    if (!subCatFormLabel.trim() || !currentCategoryObj) return;
 
     if (editingSubCatId) {
-      const updated = safeCategories.map(c => ({
-        ...c,
-        subCategories: (c.subCategories || []).map(s => {
-          if (s.id === editingSubCatId) {
-            return { ...s, label: subCatFormLabel.trim() };
-          }
-          return s;
-        })
-      }));
+      const updated = safeCategories.map(c => {
+        if (c.id !== currentCategoryObj.id) return c;
+        return {
+          ...c,
+          subCategories: (c.subCategories || []).map(s => {
+            if (s.id === editingSubCatId) {
+              return { ...s, label: subCatFormLabel.trim() };
+            }
+            return s;
+          })
+        };
+      });
       onChangeCategories?.(updated);
       setEditingSubCatId(null);
     } else {
       const newSubId = subCatFormLabel.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 20) || `sub-${Date.now()}`;
-      const sampleSubs = safeCategories[0]?.subCategories || [];
-      const finalId = sampleSubs.some(s => s.id === newSubId) ? `${newSubId}-${Date.now().toString().slice(-4)}` : newSubId;
+      const currentSubs = currentCategoryObj.subCategories || [];
+      const finalId = currentSubs.some(s => s.id === newSubId) ? `${newSubId}-${Date.now().toString().slice(-4)}` : newSubId;
       const updated = safeCategories.map(c => {
-        const currentSubs = c.subCategories || [];
+        if (c.id !== currentCategoryObj.id) return c;
         return {
           ...c,
           subCategories: [...currentSubs, { id: finalId, label: subCatFormLabel.trim() }]
@@ -677,16 +636,17 @@ export function MoodboardView({
     setSubCatFormLabel('');
   };
 
-  // Sub-Category Manager: Trigger Delete Confirmation (State-driven)
+  // Sub-Category Manager: Trigger Delete Confirmation (State-driven & Category-specific)
   const handleDeleteSubCategory = (subCatId, subCatLabel) => {
-    const sampleSubs = currentCategoryObj?.subCategories || safeCategories[0]?.subCategories || [];
-    if (sampleSubs.length <= 1) {
-      alert('Minimal harus ada satu sub-kategori.');
+    if (!currentCategoryObj) return;
+    const currentSubs = currentCategoryObj.subCategories || [];
+    if (currentSubs.length <= 1) {
+      alert(`Minimal harus ada satu sub-kategori untuk ${currentCategoryObj.label}.`);
       return;
     }
 
-    const itemsInSub = safeItems.filter(i => i.subCategoryId === subCatId);
-    const fallbackSub = sampleSubs.find(s => s.id !== subCatId);
+    const itemsInSub = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === subCatId);
+    const fallbackSub = currentSubs.find(s => s.id !== subCatId);
     setSubCatToDelete({
       id: subCatId,
       label: subCatLabel,
@@ -695,18 +655,19 @@ export function MoodboardView({
     });
   };
 
-  // Sub-Category Manager: Confirm Delete Sub-Category (Instantly syncs to all categories)
+  // Sub-Category Manager: Confirm Delete Sub-Category (Affects ONLY the current category)
   const confirmDeleteSubCategory = (subCatId) => {
-    const sampleSubs = currentCategoryObj?.subCategories || safeCategories[0]?.subCategories || [];
-    if (sampleSubs.length <= 1) return;
+    if (!currentCategoryObj) return;
+    const currentSubs = currentCategoryObj.subCategories || [];
+    if (currentSubs.length <= 1) return;
 
-    const fallbackSub = sampleSubs.find(s => s.id !== subCatId);
-    const itemsInSub = safeItems.filter(i => i.subCategoryId === subCatId);
+    const fallbackSub = currentSubs.find(s => s.id !== subCatId);
+    const itemsInSub = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === subCatId);
 
-    // If there are items in this subcategory, re-assign them to fallback
+    // If there are items in this subcategory for THIS category, re-assign them to fallback
     if (itemsInSub.length > 0 && fallbackSub) {
       const updatedItems = safeItems.map(item => {
-        if (item.subCategoryId === subCatId) {
+        if (item.categoryId === currentCategoryObj.id && item.subCategoryId === subCatId) {
           return { ...item, subCategoryId: fallbackSub.id };
         }
         return item;
@@ -714,11 +675,14 @@ export function MoodboardView({
       onChangeItems?.(updatedItems);
     }
 
-    // Remove this subcategory from ALL categories uniformly
-    const updatedCategories = safeCategories.map(c => ({
-      ...c,
-      subCategories: (c.subCategories || []).filter(s => s.id !== subCatId)
-    }));
+    // Remove this subcategory ONLY from THIS category
+    const updatedCategories = safeCategories.map(c => {
+      if (c.id !== currentCategoryObj.id) return c;
+      return {
+        ...c,
+        subCategories: (c.subCategories || []).filter(s => s.id !== subCatId)
+      };
+    });
     onChangeCategories?.(updatedCategories);
 
     if (activeSubCategory === subCatId) {
@@ -1768,10 +1732,10 @@ export function MoodboardView({
                     <Layers size={18} className="text-amber-800" />
                     <div>
                       <h3 className="text-sm font-bold text-stone-900">
-                        Kelola Sub-Kategori Moodboard
+                        Kelola Sub-Kategori: {currentCategoryObj.label}
                       </h3>
                       <p className="text-[11px] text-stone-500">
-                        Sub-kategori ini seragam &amp; berlaku untuk seluruh kategori moodboard
+                        Khusus untuk kategori {currentCategoryObj.label} (tidak mempengaruhi kategori lain)
                       </p>
                     </div>
                   </div>
@@ -1799,7 +1763,7 @@ export function MoodboardView({
                       
                       <input
                         type="text"
-                        placeholder="Contoh: Before Wedding, Holy Matrimony, Reception..."
+                        placeholder={`Contoh sub-kategori untuk ${currentCategoryObj.label}...`}
                         value={subCatFormLabel}
                         onChange={(e) => setSubCatFormLabel(e.target.value)}
                         required
@@ -1870,11 +1834,11 @@ export function MoodboardView({
                                   </p>
                                   {totalCount > 0 ? (
                                     <p className="text-[11px] text-rose-700 mt-0.5 leading-snug">
-                                      Perhatian: {totalCount} foto/video akan otomatis dialihkan ke &ldquo;{subCatToDelete.fallback?.label || 'sub-kategori lain'}&rdquo;.
+                                      Perhatian: {totalCount} foto/video di {currentCategoryObj.label} akan otomatis dialihkan ke &ldquo;{subCatToDelete.fallback?.label || 'sub-kategori lain'}&rdquo;.
                                     </p>
                                   ) : (
                                     <p className="text-[11px] text-rose-600 mt-0.5">
-                                      Sub-kategori ini kosong dan akan langsung dihapus dari seluruh kategori.
+                                      Sub-kategori ini kosong dan akan dihapus dari kategori {currentCategoryObj.label}.
                                     </p>
                                   )}
                                 </div>

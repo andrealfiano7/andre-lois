@@ -20,9 +20,7 @@ import { useWeddingData } from './hooks/useWeddingData';
 import { useCountdown } from './hooks/useCountdown';
 import { GOOGLE_SHEET_URL } from './data/initialTasks';
 import { INITIAL_PHOTO_LIST, INITIAL_RUNDOWN } from './data/otherSheets';
-import { INITIAL_LOGISTICS_LIST } from './data/initialLogistics';
-import { INITIAL_MOODBOARD_ITEMS, DEFAULT_MOODBOARD_CATEGORIES, UNIFIED_SUB_CATEGORIES } from './data/initialMoodboard';
-import { StatsOverview } from './components/StatsOverview';
+import { INITIAL_MOODBOARD_ITEMS, DEFAULT_MOODBOARD_CATEGORIES } from './data/initialMoodboard';
 import { ViewSwitcher } from './components/ViewSwitcher';
 import { FilterBar } from './components/FilterBar';
 import { TaskTableView } from './components/TaskTableView';
@@ -44,41 +42,14 @@ const MOODBOARD_STORAGE = 'wedding_moodboard_items_v1';
 const MOODBOARD_CATEGORIES_STORAGE = 'wedding_moodboard_categories_v1';
 
 // Mapping old subcategories to unified standard for automatic migration
-const OLD_SUB_MAP = {
-  // Holy Matrimony
-  'altar': 'holy-matrimony',
-  'gaun-pemberkatan': 'holy-matrimony',
-  'mua-pemberkatan': 'holy-matrimony',
-  'handbouquet': 'holy-matrimony',
-  'prosesi': 'holy-matrimony',
-  'holy-matrimony': 'holy-matrimony',
-
-  // Reception
-  'pelaminan': 'reception',
-  'lighting': 'reception',
-  'gaun-resepsi': 'reception',
-  'mua-resepsi': 'reception',
-  'pelaminan-pose': 'reception',
-  'cinematic': 'reception',
-  'reception': 'reception',
-
-  // Before Wedding
-  'flatlay': 'before-wedding',
-  'jas-pria': 'before-wedding',
-  'hairdo': 'before-wedding',
-  'boutonniere': 'before-wedding',
-  'before-wedding': 'before-wedding',
-
-  // After Party & General
-  'foyer': 'after-party',
-  'keluarga-bridesmaids': 'after-party',
-  'mua-keluarga': 'after-party',
-  'corsage': 'after-party',
-  'bunga-mobil': 'after-party',
-  'undangan-fisik': 'after-party',
-  'undangan-digital': 'after-party',
-  'souvenir': 'after-party',
-  'after-party': 'after-party'
+// Fallback mapping for items with legacy sub-category ids
+const CATEGORY_SUB_FALLBACK = {
+  dekorasi: { 'holy-matrimony': 'altar', 'reception': 'pelaminan', 'before-wedding': 'foyer', 'after-party': 'photobooth' },
+  busana: { 'holy-matrimony': 'gaun-pemberkatan', 'reception': 'gaun-resepsi', 'before-wedding': 'jas-pria', 'after-party': 'seragam-keluarga' },
+  makeup: { 'holy-matrimony': 'mua-pemberkatan', 'reception': 'mua-resepsi', 'before-wedding': 'hairdo-aksesoris', 'after-party': 'mua-keluarga' },
+  bunga: { 'holy-matrimony': 'handbouquet', 'reception': 'corsage', 'before-wedding': 'boutonniere', 'after-party': 'bunga-mobil' },
+  undangan: { 'holy-matrimony': 'undangan-fisik', 'reception': 'souvenir', 'before-wedding': 'undangan-digital', 'after-party': 'souvenir' },
+  dokumentasi: { 'holy-matrimony': 'prosesi', 'reception': 'pelaminan-pose', 'before-wedding': 'flatlay', 'after-party': 'cinematic' }
 };
 
 const loadStorage = (key, fallback) => {
@@ -100,45 +71,29 @@ const loadAndMigrateMoodboardCategories = () => {
     const parsed = JSON.parse(item);
     if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_MOODBOARD_CATEGORIES;
 
-    let hasChange = false;
-    const migrated = parsed.map(cat => {
+    // Check if the saved categories were the old unified ones (where all categories had before-wedding, holy-matrimony, etc.)
+    const isOldUnified = parsed.every(c => 
+      Array.isArray(c.subCategories) && 
+      c.subCategories.length === 4 && 
+      c.subCategories.some(s => s.id === 'before-wedding') &&
+      c.subCategories.some(s => s.id === 'holy-matrimony')
+    );
+
+    if (isOldUnified) {
+      localStorage.setItem(MOODBOARD_CATEGORIES_STORAGE, JSON.stringify(DEFAULT_MOODBOARD_CATEGORIES));
+      return DEFAULT_MOODBOARD_CATEGORIES;
+    }
+
+    // Ensure each category has valid subCategories array
+    return parsed.map(cat => {
       const def = DEFAULT_MOODBOARD_CATEGORIES.find(d => d.id === cat.id);
-      let currentSubs = cat.subCategories;
-      if (!Array.isArray(currentSubs) || currentSubs.length === 0) {
-        currentSubs = [...UNIFIED_SUB_CATEGORIES];
-        hasChange = true;
-      } else {
-        const seen = new Set();
-        const mappedSubs = [];
-        for (const sub of currentSubs) {
-          const targetId = OLD_SUB_MAP[sub.id] || sub.id;
-          if (seen.has(targetId)) {
-            hasChange = true;
-            continue;
-          }
-          seen.add(targetId);
-          if (targetId !== sub.id) hasChange = true;
-
-          const unifiedDef = UNIFIED_SUB_CATEGORIES.find(u => u.id === targetId);
-          mappedSubs.push({
-            id: targetId,
-            label: sub.label && sub.label !== sub.id ? sub.label : (unifiedDef ? unifiedDef.label : targetId)
-          });
-        }
-        currentSubs = mappedSubs.length > 0 ? mappedSubs : [...UNIFIED_SUB_CATEGORIES];
-      }
-
       return {
         ...cat,
-        desc: cat.desc || def?.desc || `Koleksi inspirasi dan konsep visual untuk ${cat.label}`,
-        subCategories: currentSubs
+        subCategories: Array.isArray(cat.subCategories) && cat.subCategories.length > 0
+          ? cat.subCategories
+          : (def?.subCategories || [{ id: 'utama', label: 'Inspirasi Utama' }])
       };
     });
-
-    if (hasChange) {
-      localStorage.setItem(MOODBOARD_CATEGORIES_STORAGE, JSON.stringify(migrated));
-    }
-    return migrated;
   } catch {
     return DEFAULT_MOODBOARD_CATEGORIES;
   }
@@ -155,12 +110,14 @@ const loadAndMigrateMoodboardItems = () => {
     let hasChange = false;
     const migrated = parsed.map(it => {
       let subId = it.subCategoryId;
-      if (OLD_SUB_MAP[subId]) {
-        subId = OLD_SUB_MAP[subId];
+      const catMap = CATEGORY_SUB_FALLBACK[it.categoryId];
+      if (catMap && catMap[subId]) {
+        subId = catMap[subId];
         hasChange = true;
       }
       if (!subId) {
-        subId = 'before-wedding';
+        const def = DEFAULT_MOODBOARD_CATEGORIES.find(d => d.id === it.categoryId);
+        subId = def?.subCategories?.[0]?.id || 'altar';
         hasChange = true;
       }
       return {
