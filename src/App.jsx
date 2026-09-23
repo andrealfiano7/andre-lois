@@ -100,19 +100,44 @@ const loadAndMigrateMoodboardCategories = () => {
     const parsed = JSON.parse(item);
     if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_MOODBOARD_CATEGORIES;
 
+    let hasChange = false;
     const migrated = parsed.map(cat => {
       const def = DEFAULT_MOODBOARD_CATEGORIES.find(d => d.id === cat.id);
-      const customSubs = (cat.subCategories || []).filter(
-        s => !UNIFIED_SUB_CATEGORIES.some(u => u.id === s.id) && !OLD_SUB_MAP[s.id]
-      );
+      let currentSubs = cat.subCategories;
+      if (!Array.isArray(currentSubs) || currentSubs.length === 0) {
+        currentSubs = [...UNIFIED_SUB_CATEGORIES];
+        hasChange = true;
+      } else {
+        const seen = new Set();
+        const mappedSubs = [];
+        for (const sub of currentSubs) {
+          const targetId = OLD_SUB_MAP[sub.id] || sub.id;
+          if (seen.has(targetId)) {
+            hasChange = true;
+            continue;
+          }
+          seen.add(targetId);
+          if (targetId !== sub.id) hasChange = true;
+
+          const unifiedDef = UNIFIED_SUB_CATEGORIES.find(u => u.id === targetId);
+          mappedSubs.push({
+            id: targetId,
+            label: sub.label && sub.label !== sub.id ? sub.label : (unifiedDef ? unifiedDef.label : targetId)
+          });
+        }
+        currentSubs = mappedSubs.length > 0 ? mappedSubs : [...UNIFIED_SUB_CATEGORIES];
+      }
+
       return {
         ...cat,
         desc: cat.desc || def?.desc || `Koleksi inspirasi dan konsep visual untuk ${cat.label}`,
-        subCategories: [...UNIFIED_SUB_CATEGORIES, ...customSubs]
+        subCategories: currentSubs
       };
     });
 
-    localStorage.setItem(MOODBOARD_CATEGORIES_STORAGE, JSON.stringify(migrated));
+    if (hasChange) {
+      localStorage.setItem(MOODBOARD_CATEGORIES_STORAGE, JSON.stringify(migrated));
+    }
     return migrated;
   } catch {
     return DEFAULT_MOODBOARD_CATEGORIES;

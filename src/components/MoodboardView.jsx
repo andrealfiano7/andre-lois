@@ -167,14 +167,31 @@ export function MoodboardView({
     const raw = Array.isArray(categories) && categories.length > 0 ? categories : DEFAULT_MOODBOARD_CATEGORIES;
     return raw.map(cat => {
       const def = DEFAULT_MOODBOARD_CATEGORIES.find(d => d.id === cat.id);
-      const customSubs = (cat.subCategories || []).filter(
-        s => !UNIFIED_SUB_CATEGORIES.some(u => u.id === s.id) && !OLD_SUB_MAP[s.id]
-      );
+      
+      let currentSubs = cat.subCategories;
+      if (!Array.isArray(currentSubs) || currentSubs.length === 0) {
+        currentSubs = [...UNIFIED_SUB_CATEGORIES];
+      } else {
+        const seen = new Set();
+        const mappedSubs = [];
+        for (const sub of currentSubs) {
+          const targetId = OLD_SUB_MAP[sub.id] || sub.id;
+          if (seen.has(targetId)) continue;
+          seen.add(targetId);
+
+          const unifiedDef = UNIFIED_SUB_CATEGORIES.find(u => u.id === targetId);
+          mappedSubs.push({
+            id: targetId,
+            label: sub.label && sub.label !== sub.id ? sub.label : (unifiedDef ? unifiedDef.label : targetId)
+          });
+        }
+        currentSubs = mappedSubs.length > 0 ? mappedSubs : [...UNIFIED_SUB_CATEGORIES];
+      }
 
       return {
         ...cat,
         desc: cat.desc || def?.desc || `Koleksi inspirasi dan konsep visual untuk ${cat.label}`,
-        subCategories: [...UNIFIED_SUB_CATEGORIES, ...customSubs]
+        subCategories: currentSubs
       };
     });
   }, [categories, OLD_SUB_MAP]);
@@ -1828,20 +1845,26 @@ export function MoodboardView({
                             <div className="flex items-center gap-1 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
                                   setIsAddingSubCat(false);
                                   setEditingSubCatId(sub.id);
                                   setSubCatFormLabel(sub.label);
                                 }}
-                                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition"
+                                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
                                 title="Edit Sub-Kategori"
                               >
                                 <Edit3 size={13} />
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleDeleteSubCategory(sub.id, sub.label)}
-                                className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleDeleteSubCategory(sub.id, sub.label);
+                                }}
+                                className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                                 title="Hapus Sub-Kategori"
                               >
                                 <Trash2 size={13} />
