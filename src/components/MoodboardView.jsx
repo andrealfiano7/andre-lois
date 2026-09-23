@@ -361,6 +361,8 @@ export function MoodboardView({
           return {
             ...item,
             ...formData,
+            title: formData.title.trim(),
+            notes: (formData.notes || '').trim(),
             imageUrl: imagesToSave[0],
             subCategoryId: finalSubCatId
           };
@@ -370,13 +372,14 @@ export function MoodboardView({
       onChangeItems?.(updated);
     } else {
       const timestamp = Date.now();
+      const baseTitle = formData.title.trim();
       const newItems = imagesToSave.map((imgUrl, index) => ({
         id: `mb-${timestamp}-${index}-${Math.random().toString(36).substring(2, 6)}`,
-        title: '',
+        title: baseTitle ? (imagesToSave.length > 1 ? `${baseTitle} #${index + 1}` : baseTitle) : '',
         categoryId: formData.categoryId,
         subCategoryId: finalSubCatId,
         imageUrl: imgUrl,
-        notes: formData.notes || '',
+        notes: (formData.notes || '').trim(),
         source: formData.source || 'Pinterest',
         createdAt: new Date().toISOString().split('T')[0]
       }));
@@ -765,7 +768,7 @@ export function MoodboardView({
                     </div>
 
                     {subPhotos.length > 0 ? (
-                      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 items-start">
                         {subPhotos.map(item => (
                           <PhotoCard
                             key={item.id}
@@ -820,7 +823,7 @@ export function MoodboardView({
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 items-start">
                   {filteredItems.map(item => (
                     <PhotoCard
                       key={item.id}
@@ -1066,7 +1069,7 @@ export function MoodboardView({
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 items-start">
                   {filteredItems.map(item => (
                     <PhotoCard
                       key={item.id}
@@ -1197,6 +1200,20 @@ export function MoodboardView({
                     </div>
                   </div>
 
+
+                  {/* Judul / Konsep (Opsional) */}
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Judul / Konsep <span className="text-stone-400 font-normal text-[11px]">(Opsional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: Gaun Pengantin Minimalis A-Line & Veil"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800"
+                    />
+                  </div>
 
                   {/* Image Picker: File Upload or External URL */}
                   <div>
@@ -1915,6 +1932,9 @@ export function MoodboardView({
 
 // Reusable Photo Card Component
 function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDelete }) {
+  const hasTitle = Boolean(item.title && item.title.trim());
+  const hasNotes = Boolean(item.notes && item.notes.trim());
+
   return (
     <motion.div
       layout
@@ -1926,11 +1946,11 @@ function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDel
       {/* Image thumbnail with hover overlay */}
       <div 
         onClick={() => onViewDetail(item)}
-        className="relative overflow-hidden aspect-4/3 sm:aspect-square bg-stone-100 cursor-pointer"
+        className="relative overflow-hidden aspect-4/3 sm:aspect-square bg-stone-100 cursor-pointer shrink-0"
       >
         <img
           src={item.imageUrl}
-          alt={item.title}
+          alt={item.title || subCatLabel || 'Inspirasi Moodboard'}
           loading="lazy"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
@@ -1950,38 +1970,53 @@ function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDel
         </div>
       </div>
 
-      {/* Card Info & Footer (Tanpa Judul) */}
-      <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between">
-        {item.notes ? (
-          <p className="text-[11px] text-stone-600 line-clamp-2 leading-relaxed mb-2">
-            {item.notes}
-          </p>
-        ) : null}
-
-        {/* Card Footer Actions */}
-        <div className={`${item.notes ? 'pt-2 border-t border-stone-100' : ''} flex items-center justify-between text-[11px] text-stone-400`}>
-          <span className="truncate max-w-[120px] font-medium text-stone-500">
-            {item.source || 'Pinterest'}
-          </span>
-
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => onEdit(item)}
-              className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
-              title="Edit Catatan"
+      {/* Card Info: Only rendered if title or notes exist */}
+      {(hasTitle || hasNotes) && (
+        <div className="px-3 pt-2.5 pb-1 sm:px-3.5 sm:pt-3 space-y-0.5">
+          {hasTitle && (
+            <h4 
+              onClick={() => onViewDetail(item)}
+              className="text-xs sm:text-sm font-extrabold text-stone-900 group-hover:text-amber-800 transition line-clamp-1 cursor-pointer leading-snug"
+              title={item.title}
             >
-              <Edit3 size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(item.id, item.title)}
-              className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-              title="Hapus Foto"
-            >
-              <Trash2 size={13} />
-            </button>
-          </div>
+              {item.title}
+            </h4>
+          )}
+          {hasNotes && (
+            <p className="text-[11px] text-stone-600 line-clamp-2 leading-relaxed">
+              {item.notes.trim()}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Card Footer Actions */}
+      <div className={`flex items-center justify-between text-[11px] text-stone-400 ${
+        (hasTitle || hasNotes) 
+          ? 'mt-2 pt-2 px-3 pb-2.5 sm:px-3.5 sm:pb-3 border-t border-stone-100' 
+          : 'px-3 py-2 sm:px-3.5 sm:py-2.5'
+      }`}>
+        <span className="truncate max-w-[120px] font-medium text-stone-500">
+          {item.source || 'Pinterest'}
+        </span>
+
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => onEdit(item)}
+            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+            title="Edit Info"
+          >
+            <Edit3 size={13} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(item.id, item.title)}
+            className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+            title="Hapus Foto"
+          >
+            <Trash2 size={13} />
+          </button>
         </div>
       </div>
     </motion.div>
