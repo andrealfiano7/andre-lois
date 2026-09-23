@@ -129,20 +129,27 @@ export default async function handler(req, res) {
           id = parsedUrl.searchParams.get('id');
         } catch {}
       }
-      if (!id) {
+      if (!id && req.body) {
         try {
-          const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body;
+          const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
           id = body?.id;
         } catch {}
+      }
+      if (id) {
+        try {
+          id = decodeURIComponent(String(id)).trim();
+        } catch {
+          id = String(id).trim();
+        }
       }
       if (!id) {
         return res.status(400).json({ success: false, error: 'Moodboard ID is required' });
       }
 
-      await prisma.moodboardItem.deleteMany({
+      const result = await prisma.moodboardItem.deleteMany({
         where: { id }
       });
-      return res.status(200).json({ success: true, message: 'Moodboard item deleted' });
+      return res.status(200).json({ success: true, message: 'Moodboard item deleted', id, count: result.count });
     }
 
     return res.status(405).json({ success: false, error: 'Method not allowed' });

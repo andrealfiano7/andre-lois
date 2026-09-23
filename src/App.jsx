@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { 
   LayoutDashboard, 
   CheckSquare, 
@@ -194,6 +194,7 @@ export default function App() {
   const [logisticsList, setLogisticsList] = useState(() => loadStorage(LOGISTICS_STORAGE, INITIAL_LOGISTICS_LIST));
   const [moodboardItems, setMoodboardItems] = useState(() => loadAndMigrateMoodboardItems());
   const [moodboardCategories, setMoodboardCategories] = useState(() => loadAndMigrateMoodboardCategories());
+  const deletedMoodboardIdsRef = useRef(new Set());
 
   // Realtime Live Sync for Rundown & Photos from Neon Database
   useEffect(() => {
@@ -261,8 +262,11 @@ export default function App() {
         .then(data => {
           if (!isMounted || !data.success || !Array.isArray(data.data)) return;
 
-          // Neon DB is source of truth, filter out any deprecated template items
-          const cleanData = data.data.filter(it => !DEPRECATED_TEMPLATE_IDS.has(it.id));
+          // Neon DB is source of truth, filter out any deprecated template items and recently deleted items
+          const cleanData = data.data.filter(it => 
+            !DEPRECATED_TEMPLATE_IDS.has(it.id) && 
+            !deletedMoodboardIdsRef.current.has(it.id)
+          );
           setMoodboardItems(prev => {
             const prevStr = JSON.stringify(prev);
             const nextStr = JSON.stringify(cleanData);
@@ -430,6 +434,9 @@ export default function App() {
   };
 
   const handleMoodboardItemDelete = async (id) => {
+    if (!id) return;
+    deletedMoodboardIdsRef.current.add(id);
+
     // 1. Optimistic update in UI and local storage
     setMoodboardItems(prev => {
       const updated = prev.filter(item => item.id !== id);
@@ -456,22 +463,6 @@ export default function App() {
     } catch (err) {
       console.error('Gagal menghapus moodboard item:', err);
     }
-
-    // 3. Immediately re-fetch fresh data from server with cache busting
-    try {
-      const res = await fetch(`/api/moodboard?t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' }
-      });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.data)) {
-        const cleanData = data.data.filter(it => !DEPRECATED_TEMPLATE_IDS.has(it.id));
-        setMoodboardItems(cleanData);
-        try {
-          localStorage.setItem(MOODBOARD_STORAGE, JSON.stringify(cleanData));
-        } catch {}
-      }
-    } catch {}
   };
 
   const handleMoodboardCategoriesChange = (newList) => {

@@ -529,6 +529,9 @@ export function MoodboardView({
         body: JSON.stringify({ id })
       }).catch(() => {});
     }
+
+    setUploadToast('✓ Foto berhasil dihapus');
+    setTimeout(() => setUploadToast(null), 4000);
   };
 
   // Download Image from Detail Popup
