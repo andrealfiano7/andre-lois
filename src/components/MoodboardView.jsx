@@ -98,6 +98,9 @@ export function MoodboardView({
   const [isCreatingCustomSubCat, setIsCreatingCustomSubCat] = useState(false);
   const [customSubCatName, setCustomSubCatName] = useState('');
   const [isCompressing, setIsCompressing] = useState(false);
+  const [compressProgress, setCompressProgress] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [inputUrl, setInputUrl] = useState('');
   const fileInputRef = useRef(null);
 
   // Category Manager Form State
@@ -213,6 +216,9 @@ export function MoodboardView({
     setEditingItem(null);
     setIsCreatingCustomSubCat(false);
     setCustomSubCatName('');
+    setSelectedImages([]);
+    setInputUrl('');
+    setCompressProgress(null);
 
     const defaultCat = targetCatId || activeCategoryView || safeCategories[0]?.id || 'dekorasi';
     const catObj = safeCategories.find(c => c.id === defaultCat) || safeCategories[0];
@@ -234,6 +240,9 @@ export function MoodboardView({
     setEditingItem(item);
     setIsCreatingCustomSubCat(false);
     setCustomSubCatName('');
+    setSelectedImages(item.imageUrl ? [item.imageUrl] : []);
+    setInputUrl('');
+    setCompressProgress(null);
 
     setFormData({
       title: item.title || '',
@@ -247,38 +256,82 @@ export function MoodboardView({
     setIsUploadModalOpen(true);
   };
 
-  // Handle Local File Pick & Canvas Compression
+  // Handle Local File Pick & Canvas Compression (Supports Multiple Files)
   const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const fileList = Array.from(e.target.files || []);
+    if (fileList.length === 0) return;
 
-    if (!file.type.startsWith('image/')) {
+    const validFiles = fileList.filter(file => file.type.startsWith('image/'));
+    if (validFiles.length === 0) {
       alert('Silakan pilih file gambar yang valid (JPEG, PNG, atau WEBP).');
       return;
     }
 
     try {
       setIsCompressing(true);
-      const compressedDataUrl = await compressImageFile(file);
-      setFormData(prev => ({
-        ...prev,
-        imageUrl: compressedDataUrl,
-        title: prev.title || file.name.replace(/\.[^/.]+$/, "")
-      }));
+      setCompressProgress({ current: 0, total: validFiles.length });
+
+      const compressedBatch = [];
+      for (let i = 0; i < validFiles.length; i++) {
+        setCompressProgress({ current: i + 1, total: validFiles.length });
+        const compressedDataUrl = await compressImageFile(validFiles[i]);
+        compressedBatch.push(compressedDataUrl);
+      }
+
+      if (editingItem) {
+        setSelectedImages([compressedBatch[0]]);
+        setFormData(prev => ({
+          ...prev,
+          imageUrl: compressedBatch[0]
+        }));
+      } else {
+        setSelectedImages(prev => [...prev, ...compressedBatch]);
+        setFormData(prev => ({
+          ...prev,
+          imageUrl: prev.imageUrl || compressedBatch[0]
+        }));
+      }
     } catch (err) {
       console.error(err);
       alert('Gagal memproses gambar. Coba gunakan gambar lain.');
     } finally {
       setIsCompressing(false);
+      setCompressProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  // Save Item (Add or Edit)
+  // Add Image via External URL
+  const handleAddUrlImage = () => {
+    if (!inputUrl.trim()) return;
+    if (editingItem) {
+      setSelectedImages([inputUrl.trim()]);
+      setFormData(prev => ({ ...prev, imageUrl: inputUrl.trim() }));
+    } else {
+      setSelectedImages(prev => [...prev, inputUrl.trim()]);
+    }
+    setInputUrl('');
+  };
+
+  // Remove one image from selected preview batch
+  const handleRemoveSelectedImage = (indexToRemove) => {
+    setSelectedImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  // Save Item (Add Single/Batch or Edit)
   const handleSaveItem = (e) => {
     e.preventDefault();
-    if (!formData.imageUrl.trim()) {
-      alert('Harap upload gambar atau masukkan URL gambar.');
+
+    let imagesToSave = [...selectedImages];
+    if (inputUrl.trim() && !imagesToSave.includes(inputUrl.trim())) {
+      imagesToSave.push(inputUrl.trim());
+    }
+    if (imagesToSave.length === 0 && formData.imageUrl.trim()) {
+      imagesToSave.push(formData.imageUrl.trim());
+    }
+
+    if (imagesToSave.length === 0) {
+      alert('Harap pilih minimal 1 foto atau masukkan URL gambar.');
       return;
     }
 
@@ -308,6 +361,7 @@ export function MoodboardView({
           return {
             ...item,
             ...formData,
+            imageUrl: imagesToSave[0],
             subCategoryId: finalSubCatId
           };
         }
@@ -315,13 +369,18 @@ export function MoodboardView({
       });
       onChangeItems?.(updated);
     } else {
-      const newItem = {
-        id: `mb-${Date.now()}`,
-        ...formData,
+      const timestamp = Date.now();
+      const newItems = imagesToSave.map((imgUrl, index) => ({
+        id: `mb-${timestamp}-${index}-${Math.random().toString(36).substring(2, 6)}`,
+        title: '',
+        categoryId: formData.categoryId,
         subCategoryId: finalSubCatId,
+        imageUrl: imgUrl,
+        notes: formData.notes || '',
+        source: formData.source || 'Pinterest',
         createdAt: new Date().toISOString().split('T')[0]
-      };
-      onChangeItems?.([newItem, ...safeItems]);
+      }));
+      onChangeItems?.([...newItems, ...safeItems]);
     }
     setIsUploadModalOpen(false);
   };
@@ -706,7 +765,7 @@ export function MoodboardView({
                     </div>
 
                     {subPhotos.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                         {subPhotos.map(item => (
                           <PhotoCard
                             key={item.id}
@@ -761,7 +820,7 @@ export function MoodboardView({
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                   {filteredItems.map(item => (
                     <PhotoCard
                       key={item.id}
@@ -1007,7 +1066,7 @@ export function MoodboardView({
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                   {filteredItems.map(item => (
                     <PhotoCard
                       key={item.id}
@@ -1141,9 +1200,20 @@ export function MoodboardView({
 
                   {/* Image Picker: File Upload or External URL */}
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">
-                      Pilihan Gambar <span className="text-rose-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-stone-700">
+                        {editingItem ? 'Pilihan Foto' : 'Pilihan Foto (Bisa Pilih Banyak)'} <span className="text-rose-500">*</span>
+                      </label>
+                      {selectedImages.length > 0 && !editingItem && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedImages([])}
+                          className="text-[10px] font-bold text-rose-500 hover:text-rose-700 cursor-pointer"
+                        >
+                          Hapus Semua ({selectedImages.length})
+                        </button>
+                      )}
+                    </div>
                     
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
@@ -1151,53 +1221,100 @@ export function MoodboardView({
                           type="file"
                           ref={fileInputRef}
                           accept="image/*"
+                          multiple={!editingItem}
                           onChange={handleFileChange}
                           className="hidden"
                           id="moodboard-file-input"
                         />
                         <label
                           htmlFor="moodboard-file-input"
-                          className="flex-1 py-2.5 px-3 border border-dashed border-stone-300 hover:border-stone-800 bg-stone-50 hover:bg-stone-100 rounded-xl text-xs font-bold text-stone-700 flex items-center justify-center gap-2 cursor-pointer transition"
+                          className="flex-1 py-2.5 px-3 border border-dashed border-stone-300 hover:border-stone-800 bg-stone-50 hover:bg-stone-100 rounded-xl text-xs font-bold text-stone-700 flex items-center justify-center gap-2 cursor-pointer transition text-center"
                         >
-                          <Upload size={14} className="text-amber-800" />
-                          <span>{isCompressing ? 'Mengompresi Gambar...' : 'Pilih File (Kamera / Galeri)'}</span>
+                          <Upload size={14} className="text-amber-800 shrink-0" />
+                          <span>
+                            {isCompressing 
+                              ? `Mengompresi Foto (${compressProgress ? `${compressProgress.current}/${compressProgress.total}` : '...'})` 
+                              : editingItem 
+                                ? 'Pilih Foto Pengganti' 
+                                : 'Pilih Foto (Bisa Banyak Sekaligus)'
+                            }
+                          </span>
                         </label>
                       </div>
 
-                      <div className="relative">
+                      <div className="flex items-center gap-1.5">
                         <input
                           type="url"
                           placeholder="Atau tempel tautan URL gambar (https://...)"
-                          value={formData.imageUrl}
-                          onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                          className="w-full pl-3 pr-8 py-2 bg-white border border-stone-200 rounded-xl text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800"
+                          value={inputUrl}
+                          onChange={(e) => setInputUrl(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddUrlImage();
+                            }
+                          }}
+                          className="flex-1 px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800"
                         />
-                        {formData.imageUrl && (
-                          <button
-                            type="button"
-                            onClick={() => setFormData({ ...formData, imageUrl: '' })}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
-                          >
-                            <X size={12} />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={handleAddUrlImage}
+                          disabled={!inputUrl.trim()}
+                          className="px-3 py-2 rounded-xl text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-700 disabled:opacity-40 transition cursor-pointer shrink-0"
+                        >
+                          + Tambah
+                        </button>
                       </div>
                     </div>
 
-                    {/* Image Preview Box */}
-                    {formData.imageUrl && (
-                      <div className="mt-2.5 relative rounded-2xl overflow-hidden border border-stone-200 bg-stone-50 aspect-video max-h-48 flex items-center justify-center">
-                        <img 
-                          src={formData.imageUrl} 
-                          alt="Preview" 
-                          className="w-full h-full object-contain"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                        <span className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
-                          Pratinjau Gambar
-                        </span>
+                    {/* Image Preview Grid (Multiple Thumbnails) */}
+                    {selectedImages.length > 0 && (
+                      <div className="mt-2.5 p-2.5 bg-stone-50 rounded-2xl border border-stone-200/90">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-extrabold text-stone-700">
+                            {selectedImages.length} Foto Siap Diupload:
+                          </span>
+                          <span className="text-[10px] text-stone-400">
+                            Klik silang (x) untuk membatalkan
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-1">
+                          {selectedImages.map((imgUrl, idx) => (
+                            <div 
+                              key={idx} 
+                              className="relative aspect-square rounded-xl overflow-hidden border border-stone-200 bg-white group shadow-2xs"
+                            >
+                              <img 
+                                src={imgUrl} 
+                                alt={`Foto ${idx + 1}`} 
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] font-extrabold px-1.5 py-0.2 rounded-md backdrop-blur-xs">
+                                #{idx + 1}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSelectedImage(idx)}
+                                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 hover:bg-rose-600 text-white flex items-center justify-center transition shadow-xs cursor-pointer"
+                                title="Hapus foto ini"
+                              >
+                                <X size={11} />
+                              </button>
+                            </div>
+                          ))}
+
+                          {!editingItem && (
+                            <label
+                              htmlFor="moodboard-file-input"
+                              className="aspect-square rounded-xl border border-dashed border-stone-300 hover:border-stone-800 bg-white hover:bg-stone-50 flex flex-col items-center justify-center text-stone-500 hover:text-stone-800 cursor-pointer text-[10px] font-bold gap-1 transition"
+                              title="Tambah foto lagi"
+                            >
+                              <Plus size={16} />
+                              <span>Tambah</span>
+                            </label>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1241,10 +1358,14 @@ export function MoodboardView({
                     </button>
                     <button
                       type="submit"
-                      disabled={isCompressing}
-                      className="px-5 py-2 rounded-xl text-xs font-bold bg-stone-900 text-white hover:bg-stone-800 transition shadow-xs disabled:opacity-50"
+                      disabled={isCompressing || (selectedImages.length === 0 && !inputUrl.trim() && !formData.imageUrl.trim())}
+                      className="px-5 py-2 rounded-xl text-xs font-bold bg-stone-900 text-white hover:bg-stone-800 transition shadow-xs disabled:opacity-50 cursor-pointer"
                     >
-                      {editingItem ? 'Simpan Perubahan' : 'Upload ke Moodboard'}
+                      {editingItem 
+                        ? 'Simpan Perubahan' 
+                        : selectedImages.length > 1 
+                          ? `Upload ${selectedImages.length} Foto Sekaligus` 
+                          : 'Upload ke Moodboard'}
                     </button>
                   </div>
                 </form>
@@ -1829,34 +1950,18 @@ function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDel
         </div>
       </div>
 
-      {/* Card Info */}
-      <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between">
-        <div>
-          {item.title ? (
-            <h4 
-              onClick={() => onViewDetail(item)}
-              className="text-xs sm:text-sm font-extrabold text-stone-900 group-hover:text-amber-800 transition line-clamp-1 cursor-pointer"
-              title={item.title}
-            >
-              {item.title}
-            </h4>
-          ) : null}
-
-          {item.notes ? (
-            <p className="text-[11px] text-stone-600 line-clamp-2 leading-relaxed">
-              {item.notes}
-            </p>
-          ) : !item.title ? (
-            <p className="text-[11px] text-stone-400 italic">
-              Klik untuk lihat detail foto
-            </p>
-          ) : null}
-        </div>
+      {/* Card Info & Footer (Tanpa Judul) */}
+      <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between">
+        {item.notes ? (
+          <p className="text-[11px] text-stone-600 line-clamp-2 leading-relaxed mb-2">
+            {item.notes}
+          </p>
+        ) : null}
 
         {/* Card Footer Actions */}
-        <div className="mt-3 pt-2.5 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-400">
-          <span className="truncate max-w-[120px] font-medium">
-            {item.source || 'Inspirasi'}
+        <div className={`${item.notes ? 'pt-2 border-t border-stone-100' : ''} flex items-center justify-between text-[11px] text-stone-400`}>
+          <span className="truncate max-w-[120px] font-medium text-stone-500">
+            {item.source || 'Pinterest'}
           </span>
 
           <div className="flex items-center gap-1 shrink-0">
