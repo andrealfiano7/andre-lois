@@ -16,13 +16,17 @@ import {
   Check, 
   Sparkles, 
   RotateCcw, 
-  FolderPlus, 
   Tag, 
-  Calendar,
-  AlertCircle
+  ArrowRight,
+  ChevronLeft,
+  Folder,
+  Grid,
+  Filter,
+  SlidersHorizontal,
+  Bookmark
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { COLOR_PRESETS } from '../data/initialMoodboard';
+import { COLOR_PRESETS, DEFAULT_MOODBOARD_CATEGORIES } from '../data/initialMoodboard';
 
 // Helper to compress local image files via Canvas
 function compressImageFile(file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) {
@@ -65,23 +69,33 @@ export function MoodboardView({
   onChangeCategories,
   onResetToDefault
 }) {
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  // Navigation level: null = Overview Katalog Kategori (Level 1), string catId = Halaman Khusus Kategori (Level 2)
+  const [activeCategoryView, setActiveCategoryView] = useState(null);
+  // Active sub-category filter inside category view: 'all' or sub-category id
+  const [activeSubCategory, setActiveSubCategory] = useState('all');
+  // View mode in Level 1: 'boards' (Papan Kategori) or 'all-photos' (Semua Foto Galeri)
+  const [level1Mode, setLevel1Mode] = useState('boards');
+  // Global search query
   const [searchQuery, setSearchQuery] = useState('');
 
   // Modals state
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isSubCategoryModalOpen, setIsSubCategoryModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [detailItem, setDetailItem] = useState(null);
 
   // Upload Form State
   const [formData, setFormData] = useState({
     title: '',
-    categoryId: '',
+    categoryId: 'dekorasi',
+    subCategoryId: 'altar',
     imageUrl: '',
     notes: '',
     source: ''
   });
+  const [isCreatingCustomSubCat, setIsCreatingCustomSubCat] = useState(false);
+  const [customSubCatName, setCustomSubCatName] = useState('');
   const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -89,60 +103,124 @@ export function MoodboardView({
   const [categoryFormData, setCategoryFormData] = useState({
     id: '',
     label: '',
+    desc: '',
     color: 'amber'
   });
   const [editingCategoryId, setEditingCategoryId] = useState(null);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
 
-  const safeItems = Array.isArray(items) ? items : [];
-  const safeCategories = Array.isArray(categories) ? categories : [];
+  // Sub-Category Manager State
+  const [editingSubCatId, setEditingSubCatId] = useState(null);
+  const [subCatFormLabel, setSubCatFormLabel] = useState('');
+  const [isAddingSubCat, setIsAddingSubCat] = useState(false);
 
-  // Helper to get category details
+  // Backward compatibility normalization for categories
+  const safeCategories = useMemo(() => {
+    const raw = Array.isArray(categories) && categories.length > 0 ? categories : DEFAULT_MOODBOARD_CATEGORIES;
+    return raw.map(cat => {
+      const def = DEFAULT_MOODBOARD_CATEGORIES.find(d => d.id === cat.id);
+      const subCats = Array.isArray(cat.subCategories) && cat.subCategories.length > 0
+        ? cat.subCategories
+        : (def?.subCategories || [{ id: 'utama', label: 'Inspirasi Utama' }]);
+      return {
+        ...cat,
+        desc: cat.desc || def?.desc || `Koleksi inspirasi dan konsep visual untuk ${cat.label}`,
+        subCategories: subCats
+      };
+    });
+  }, [categories]);
+
+  // Backward compatibility normalization for items
+  const safeItems = useMemo(() => {
+    const raw = Array.isArray(items) ? items : [];
+    return raw.map(item => {
+      if (!item.subCategoryId) {
+        const cat = safeCategories.find(c => c.id === item.categoryId);
+        return {
+          ...item,
+          subCategoryId: cat?.subCategories?.[0]?.id || 'utama'
+        };
+      }
+      return item;
+    });
+  }, [items, safeCategories]);
+
+  // Current active category object
+  const currentCategoryObj = useMemo(() => {
+    if (!activeCategoryView) return null;
+    return safeCategories.find(c => c.id === activeCategoryView) || safeCategories[0];
+  }, [activeCategoryView, safeCategories]);
+
+  // Helpers
   const getCategory = (catId) => {
     return safeCategories.find(c => c.id === catId) || {
       id: catId,
       label: catId || 'Lainnya',
-      color: 'amber'
+      color: 'amber',
+      subCategories: []
     };
   };
 
-  // Helper to get category badge style
+  const getSubCategoryLabel = (catId, subCatId) => {
+    const cat = getCategory(catId);
+    const sub = cat.subCategories?.find(s => s.id === subCatId);
+    return sub?.label || 'Inspirasi Utama';
+  };
+
   const getCategoryBadgeClass = (catId) => {
     const cat = getCategory(catId);
     const preset = COLOR_PRESETS.find(p => p.id === cat.color) || COLOR_PRESETS[0];
     return preset.badgeColor;
   };
 
-  // Filtered items
+  const getCategoryPreset = (catId) => {
+    const cat = getCategory(catId);
+    return COLOR_PRESETS.find(p => p.id === cat.color) || COLOR_PRESETS[0];
+  };
+
+  // Filtered items based on Category, Sub-Category, and Search Query
   const filteredItems = useMemo(() => {
     return safeItems.filter(item => {
-      // Category filter
-      if (selectedCategory !== 'all' && item.categoryId !== selectedCategory) {
+      // In category detail view
+      if (activeCategoryView && item.categoryId !== activeCategoryView) {
         return false;
       }
-      // Query filter
+      // Sub-category filter
+      if (activeCategoryView && activeSubCategory !== 'all' && item.subCategoryId !== activeSubCategory) {
+        return false;
+      }
+      // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const cat = getCategory(item.categoryId);
+        const subLabel = getSubCategoryLabel(item.categoryId, item.subCategoryId);
         const match = [
           item.title,
           item.notes,
           item.source,
-          cat?.label
+          cat?.label,
+          subLabel
         ].some(val => val?.toLowerCase().includes(q));
         if (!match) return false;
       }
       return true;
     });
-  }, [safeItems, selectedCategory, searchQuery, safeCategories]);
+  }, [safeItems, activeCategoryView, activeSubCategory, searchQuery, safeCategories]);
 
-  // Open Upload / Add Modal
-  const handleOpenAdd = () => {
+  // Open Upload Modal
+  const handleOpenAdd = (targetCatId = null, targetSubCatId = null) => {
     setEditingItem(null);
-    const defaultCat = selectedCategory !== 'all' ? selectedCategory : (safeCategories[0]?.id || 'dekorasi');
+    setIsCreatingCustomSubCat(false);
+    setCustomSubCatName('');
+
+    const defaultCat = targetCatId || activeCategoryView || safeCategories[0]?.id || 'dekorasi';
+    const catObj = safeCategories.find(c => c.id === defaultCat) || safeCategories[0];
+    const defaultSub = targetSubCatId || (activeSubCategory !== 'all' ? activeSubCategory : (catObj?.subCategories?.[0]?.id || 'utama'));
+
     setFormData({
       title: '',
       categoryId: defaultCat,
+      subCategoryId: defaultSub,
       imageUrl: '',
       notes: '',
       source: ''
@@ -153,9 +231,13 @@ export function MoodboardView({
   // Open Edit Item Modal
   const handleOpenEdit = (item) => {
     setEditingItem(item);
+    setIsCreatingCustomSubCat(false);
+    setCustomSubCatName('');
+
     setFormData({
       title: item.title || '',
       categoryId: item.categoryId || safeCategories[0]?.id || 'dekorasi',
+      subCategoryId: item.subCategoryId || 'utama',
       imageUrl: item.imageUrl || '',
       notes: item.notes || '',
       source: item.source || ''
@@ -164,7 +246,7 @@ export function MoodboardView({
     setIsUploadModalOpen(true);
   };
 
-  // Handle Local File Pick & Compression
+  // Handle Local File Pick & Canvas Compression
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -203,12 +285,33 @@ export function MoodboardView({
       return;
     }
 
+    let finalSubCatId = formData.subCategoryId;
+
+    // If user created a custom sub-category on the fly
+    if (isCreatingCustomSubCat && customSubCatName.trim()) {
+      const newSubId = customSubCatName.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 20) || `sub-${Date.now()}`;
+      const newSub = { id: newSubId, label: customSubCatName.trim() };
+      
+      const updatedCategories = safeCategories.map(c => {
+        if (c.id === formData.categoryId) {
+          const currentSubs = c.subCategories || [];
+          if (!currentSubs.some(s => s.id === newSubId)) {
+            return { ...c, subCategories: [...currentSubs, newSub] };
+          }
+        }
+        return c;
+      });
+      onChangeCategories?.(updatedCategories);
+      finalSubCatId = newSubId;
+    }
+
     if (editingItem) {
       const updated = safeItems.map(item => {
         if (item.id === editingItem.id) {
           return {
             ...item,
-            ...formData
+            ...formData,
+            subCategoryId: finalSubCatId
           };
         }
         return item;
@@ -218,6 +321,7 @@ export function MoodboardView({
       const newItem = {
         id: `mb-${Date.now()}`,
         ...formData,
+        subCategoryId: finalSubCatId,
         createdAt: new Date().toISOString().split('T')[0]
       };
       onChangeItems?.([newItem, ...safeItems]);
@@ -260,6 +364,7 @@ export function MoodboardView({
           return {
             ...c,
             label: categoryFormData.label.trim(),
+            desc: categoryFormData.desc.trim() || c.desc,
             color: categoryFormData.color
           };
         }
@@ -269,17 +374,20 @@ export function MoodboardView({
       setEditingCategoryId(null);
     } else {
       const newCatId = categoryFormData.label.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 24) || `cat-${Date.now()}`;
-      // Prevent duplicate ID
       const finalId = safeCategories.some(c => c.id === newCatId) ? `${newCatId}-${Date.now().toString().slice(-4)}` : newCatId;
       const newCat = {
         id: finalId,
         label: categoryFormData.label.trim(),
-        color: categoryFormData.color
+        desc: categoryFormData.desc.trim() || `Koleksi inspirasi dan konsep visual untuk ${categoryFormData.label.trim()}`,
+        color: categoryFormData.color,
+        subCategories: [
+          { id: 'utama', label: 'Inspirasi Utama' }
+        ]
       };
       onChangeCategories?.([...safeCategories, newCat]);
       setIsAddingCategory(false);
     }
-    setCategoryFormData({ id: '', label: '', color: 'amber' });
+    setCategoryFormData({ id: '', label: '', desc: '', color: 'amber' });
   };
 
   // Category Manager: Delete Category
@@ -298,629 +406,871 @@ export function MoodboardView({
 
     if (window.confirm(confirmMsg)) {
       const fallbackCat = safeCategories.find(c => c.id !== catId);
-      // Reassign items
       if (itemsInCat.length > 0 && fallbackCat) {
         const updatedItems = safeItems.map(item => {
           if (item.categoryId === catId) {
-            return { ...item, categoryId: fallbackCat.id };
+            return { 
+              ...item, 
+              categoryId: fallbackCat.id,
+              subCategoryId: fallbackCat.subCategories?.[0]?.id || 'utama'
+            };
           }
           return item;
         });
         onChangeItems?.(updatedItems);
       }
-      // Remove category
       const updatedCategories = safeCategories.filter(c => c.id !== catId);
       onChangeCategories?.(updatedCategories);
-      if (selectedCategory === catId) setSelectedCategory('all');
+      if (activeCategoryView === catId) {
+        setActiveCategoryView(null);
+      }
     }
+  };
+
+  // Sub-Category Manager: Add or Edit Sub-Category
+  const handleSaveSubCategory = (e) => {
+    e.preventDefault();
+    if (!subCatFormLabel.trim() || !activeCategoryView) return;
+
+    if (editingSubCatId) {
+      const updated = safeCategories.map(c => {
+        if (c.id === activeCategoryView) {
+          return {
+            ...c,
+            subCategories: (c.subCategories || []).map(s => {
+              if (s.id === editingSubCatId) {
+                return { ...s, label: subCatFormLabel.trim() };
+              }
+              return s;
+            })
+          };
+        }
+        return c;
+      });
+      onChangeCategories?.(updated);
+      setEditingSubCatId(null);
+    } else {
+      const newSubId = subCatFormLabel.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 20) || `sub-${Date.now()}`;
+      const updated = safeCategories.map(c => {
+        if (c.id === activeCategoryView) {
+          const currentSubs = c.subCategories || [];
+          const finalId = currentSubs.some(s => s.id === newSubId) ? `${newSubId}-${Date.now().toString().slice(-4)}` : newSubId;
+          return {
+            ...c,
+            subCategories: [...currentSubs, { id: finalId, label: subCatFormLabel.trim() }]
+          };
+        }
+        return c;
+      });
+      onChangeCategories?.(updated);
+      setIsAddingSubCat(false);
+    }
+    setSubCatFormLabel('');
+  };
+
+  // Sub-Category Manager: Delete Sub-Category
+  const handleDeleteSubCategory = (subCatId, subCatLabel) => {
+    if (!currentCategoryObj) return;
+    const currentSubs = currentCategoryObj.subCategories || [];
+    if (currentSubs.length <= 1) {
+      alert('Minimal harus ada satu sub-kategori di dalam kategori ini.');
+      return;
+    }
+
+    const itemsInSub = safeItems.filter(i => i.categoryId === activeCategoryView && i.subCategoryId === subCatId);
+    let confirmMsg = `Hapus sub-kategori "${subCatLabel}"?`;
+    if (itemsInSub.length > 0) {
+      const fallbackSub = currentSubs.find(s => s.id !== subCatId);
+      confirmMsg += `\n\nPerhatian: ${itemsInSub.length} foto dalam sub-kategori ini akan otomatis dipindahkan ke sub-kategori "${fallbackSub?.label}".`;
+    }
+
+    if (window.confirm(confirmMsg)) {
+      const fallbackSub = currentSubs.find(s => s.id !== subCatId);
+      if (itemsInSub.length > 0 && fallbackSub) {
+        const updatedItems = safeItems.map(item => {
+          if (item.categoryId === activeCategoryView && item.subCategoryId === subCatId) {
+            return { ...item, subCategoryId: fallbackSub.id };
+          }
+          return item;
+        });
+        onChangeItems?.(updatedItems);
+      }
+      const updatedCategories = safeCategories.map(c => {
+        if (c.id === activeCategoryView) {
+          return {
+            ...c,
+            subCategories: (c.subCategories || []).filter(s => s.id !== subCatId)
+          };
+        }
+        return c;
+      });
+      onChangeCategories?.(updatedCategories);
+      if (activeSubCategory === subCatId) {
+        setActiveSubCategory('all');
+      }
+    }
+  };
+
+  // Get cover image(s) for a category
+  const getCategoryCovers = (catId) => {
+    const catPhotos = safeItems.filter(i => i.categoryId === catId);
+    return catPhotos.map(p => p.imageUrl).filter(Boolean);
   };
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Top Banner & Header */}
-      <div className="bg-white rounded-3xl p-4 sm:p-6 border border-[#EADBCE] shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-fuchsia-600 via-rose-500 to-amber-500 text-white flex items-center justify-center shadow-xs shrink-0">
-              <Palette size={24} />
+
+      {/* ========================================================================= */}
+      {/* LEVEL 2: DEDICATED CATEGORY PAGE (HALAMAN KHUSUS PER KATEGORI & SUB-KAT)  */}
+      {/* ========================================================================= */}
+      {activeCategoryView && currentCategoryObj ? (
+        <div className="space-y-5 animate-fade-in">
+          {/* Breadcrumb & Back Bar */}
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveCategoryView(null);
+                setActiveSubCategory('all');
+                setSearchQuery('');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#EADBCE] text-stone-700 hover:text-stone-900 hover:border-stone-400 font-bold text-xs transition shadow-2xs cursor-pointer group"
+            >
+              <ChevronLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
+              <span>Semua Kategori</span>
+            </button>
+
+            {/* Breadcrumb Indicator */}
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-stone-500 font-medium">
+              <span>Moodboard</span>
+              <span>/</span>
+              <span className="font-bold text-stone-900">{currentCategoryObj.label}</span>
+              {activeSubCategory !== 'all' && (
+                <>
+                  <span>/</span>
+                  <span className="text-amber-800 font-bold">
+                    {getSubCategoryLabel(currentCategoryObj.id, activeSubCategory)}
+                  </span>
+                </>
+              )}
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg sm:text-xl font-extrabold text-stone-900 tracking-tight">
-                  Moodboard &amp; Konsep Visual
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-fuchsia-50 text-fuchsia-900 border border-fuchsia-200">
-                  {safeItems.length} Foto Inspirasi
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-stone-100 text-stone-700 border border-stone-200">
-                  {safeCategories.length} Kategori
-                </span>
+          </div>
+
+          {/* Category Hero Header Banner */}
+          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#EADBCE] shadow-xs relative overflow-hidden">
+            <div className={`absolute top-0 left-0 right-0 h-1.5 ${getCategoryPreset(currentCategoryObj.id).bg}`} />
+            
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ${getCategoryPreset(currentCategoryObj.id).bg} text-white flex items-center justify-center shadow-xs shrink-0`}>
+                  <Palette size={26} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-lg sm:text-2xl font-extrabold text-stone-900 tracking-tight">
+                      {currentCategoryObj.label}
+                    </h2>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold ${getCategoryBadgeClass(currentCategoryObj.id)}`}>
+                      {safeItems.filter(i => i.categoryId === currentCategoryObj.id).length} Foto
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-stone-100 text-stone-700 border border-stone-200">
+                      {currentCategoryObj.subCategories?.length || 0} Sub-Kategori
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-stone-500 mt-1 max-w-2xl">
+                    {currentCategoryObj.desc}
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-stone-500 mt-0.5">
-                Koleksi inspirasi visual dekorasi, busana pengantin, riasan, bunga, dan palet warna acara
-              </p>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsSubCategoryModalOpen(true)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-800 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Tambah atau kelola sub-kategori"
+                >
+                  <Layers size={14} className="text-stone-600" />
+                  <span>Kelola Sub-Kategori</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleOpenAdd(currentCategoryObj.id, activeSubCategory !== 'all' ? activeSubCategory : null)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-stone-900 to-stone-800 hover:from-fuchsia-700 hover:to-rose-700 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Upload size={14} />
+                  <span>Upload Foto</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Quick Action Buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setIsCategoryModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-800 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              title="Kelola, tambah, ubah warna atau hapus kategori"
-            >
-              <Tag size={14} className="text-stone-600" />
-              <span>Kelola Kategori</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleOpenAdd}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-stone-900 to-stone-800 hover:from-fuchsia-700 hover:to-rose-700 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-            >
-              <Upload size={15} />
-              <span>Upload Foto</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter and Tab Section */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        {/* Category Pills Filter Bar */}
-        <div className="flex items-center gap-1.5 p-1 bg-stone-200/60 rounded-2xl w-fit self-start overflow-x-auto max-w-full">
-          <button
-            type="button"
-            onClick={() => setSelectedCategory('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-              selectedCategory === 'all' 
-                ? 'bg-white text-stone-900 shadow-2xs' 
-                : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            <span>Semua</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-              selectedCategory === 'all' ? 'bg-stone-900 text-white' : 'bg-stone-300 text-stone-700'
-            }`}>
-              {safeItems.length}
-            </span>
-          </button>
-
-          {safeCategories.map(cat => {
-            const count = safeItems.filter(i => i.categoryId === cat.id).length;
-            const isSelected = selectedCategory === cat.id;
-            return (
+          {/* Sub-Category Filter Pills & Search */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            {/* Sub-Category Tabs */}
+            <div className="flex items-center gap-1.5 p-1 bg-stone-200/60 rounded-2xl w-fit self-start overflow-x-auto max-w-full">
               <button
-                key={cat.id}
                 type="button"
-                onClick={() => setSelectedCategory(cat.id)}
+                onClick={() => setActiveSubCategory('all')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                  isSelected 
+                  activeSubCategory === 'all' 
                     ? 'bg-white text-stone-900 shadow-2xs' 
                     : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                <span>{cat.label}</span>
+                <span>Semua Sub-Kategori</span>
                 <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                  isSelected ? 'bg-stone-900 text-white' : 'bg-stone-300 text-stone-700'
+                  activeSubCategory === 'all' ? 'bg-stone-900 text-white' : 'bg-stone-300 text-stone-700'
                 }`}>
-                  {count}
+                  {safeItems.filter(i => i.categoryId === currentCategoryObj.id).length}
                 </span>
               </button>
-            );
-          })}
-        </div>
 
-        {/* Search Input */}
-        <div className="relative w-full md:w-64">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-          <input
-            type="text"
-            placeholder="Cari konsep, judul, catatan..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-white border border-[#EADBCE] rounded-xl text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800"
-          />
-          {searchQuery && (
-            <button 
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
-            >
-              <X size={12} />
-            </button>
-          )}
-        </div>
-      </div>
+              {(currentCategoryObj.subCategories || []).map(sub => {
+                const count = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === sub.id).length;
+                const isSelected = activeSubCategory === sub.id;
+                return (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => setActiveSubCategory(sub.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                      isSelected 
+                        ? 'bg-white text-stone-900 shadow-2xs' 
+                        : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    <span>{sub.label}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      isSelected ? 'bg-stone-900 text-white' : 'bg-stone-300 text-stone-700'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
 
-      {/* Grid Display: Pinterest / Editorial Style */}
-      {filteredItems.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-[#EADBCE] shadow-xs">
-          <div className="w-14 h-14 rounded-2xl bg-fuchsia-50 text-fuchsia-600 flex items-center justify-center mx-auto mb-3">
-            <ImageIcon size={28} />
-          </div>
-          <h3 className="text-sm font-bold text-stone-800">Belum ada foto dalam kategori ini</h3>
-          <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
-            Mulai bangun moodboard pernikahan Anda dengan mengunggah foto gaun, dekorasi, riasan, atau bunga.
-          </p>
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={handleOpenAdd}
-              className="px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs"
-            >
-              <Upload size={14} />
-              <span>Upload Foto Sekarang</span>
-            </button>
-            {(selectedCategory !== 'all' || searchQuery) && (
               <button
                 type="button"
-                onClick={() => { setSelectedCategory('all'); setSearchQuery(''); }}
-                className="px-3.5 py-2 rounded-xl border border-stone-200 text-stone-700 font-bold text-xs hover:bg-stone-50 transition cursor-pointer"
+                onClick={() => {
+                  setIsSubCategoryModalOpen(true);
+                  setIsAddingSubCat(true);
+                  setEditingSubCatId(null);
+                  setSubCatFormLabel('');
+                }}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-stone-600 hover:text-stone-900 hover:bg-white/60 transition flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                title="Tambah Sub-Kategori Baru"
               >
-                Lihat Semua Foto
+                <Plus size={13} />
+                <span className="hidden sm:inline">Sub-Kategori Baru</span>
               </button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-          {filteredItems.map(item => {
-            const cat = getCategory(item.categoryId);
-            const badgeClass = getCategoryBadgeClass(item.categoryId);
-
-            return (
-              <motion.div
-                key={item.id}
-                layout
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-                onClick={() => setDetailItem(item)}
-                className="group relative bg-white rounded-3xl border border-[#EADBCE]/80 shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col cursor-pointer"
-              >
-                {/* Image Container with Hover Overlay */}
-                <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden">
-                  <img
-                    src={item.imageUrl}
-                    alt={item.title}
-                    loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-stone-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="p-2 rounded-full bg-white/90 text-stone-900 shadow-md backdrop-blur-xs flex items-center gap-1.5 text-xs font-bold">
-                      <Eye size={14} />
-                      <span>Lihat Detail</span>
-                    </span>
-                  </div>
-
-                  {/* Category Pill Tag */}
-                  <div className="absolute top-3 left-3">
-                    <span className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold border shadow-2xs backdrop-blur-xs ${badgeClass}`}>
-                      {cat.label}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Card Content Info */}
-                <div className="p-4 flex flex-col justify-between flex-1">
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-extrabold text-stone-900 group-hover:text-fuchsia-900 transition-colors line-clamp-1">
-                      {item.title}
-                    </h3>
-                    {item.notes && (
-                      <p className="text-[11px] text-stone-500 mt-1 line-clamp-2 leading-relaxed">
-                        {item.notes}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Card Bottom Meta & Quick Edit/Delete */}
-                  <div className="mt-3 pt-2.5 border-t border-stone-100 flex items-center justify-between text-[10px] text-stone-400">
-                    <span className="truncate max-w-[150px]">
-                      {item.source ? `Sumber: ${item.source}` : 'Koleksi Pribadi'}
-                    </span>
-
-                    <div className="flex items-center gap-1 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEdit(item)}
-                        className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
-                        title="Edit detail"
-                      >
-                        <Edit3 size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteItem(item.id, item.title)}
-                        className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                        title="Hapus foto"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Bottom Footer Info */}
-      <div className="p-4 rounded-3xl bg-white border border-[#EADBCE] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
-        <div className="flex items-center gap-2 text-stone-600">
-          <Sparkles size={16} className="text-fuchsia-600 shrink-0" />
-          <span>
-            Moodboard visual ini dapat Anda tunjukkan langsung kepada vendor dekorasi, MUA, dan fotografer saat rapat koordinasi.
-          </span>
-        </div>
-
-        {onResetToDefault && (
-          <button
-            type="button"
-            onClick={() => {
-              if (window.confirm('Kembalikan foto moodboard & kategori ke bawaan template? (Inspirasi kustom Anda akan ter-reset)')) {
-                onResetToDefault();
-              }
-            }}
-            className="text-[11px] font-bold text-stone-500 hover:text-rose-700 flex items-center gap-1 transition cursor-pointer shrink-0"
-          >
-            <RotateCcw size={12} />
-            <span>Reset Moodboard Bawaan</span>
-          </button>
-        )}
-      </div>
-
-      {/* ======================================================== */}
-      {/* 1. POPUP DETAIL LIGHTBOX MODAL (Portalled to document.body) */}
-      {/* ======================================================== */}
-      {typeof document !== 'undefined' && createPortal(
-        <AnimatePresence>
-          {detailItem && (
-            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-              {/* Backdrop */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-stone-950/70 backdrop-blur-sm"
-                onClick={() => setDetailItem(null)}
-              />
-
-              {/* Modal Container */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 30 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                onClick={(e) => e.stopPropagation()}
-                className="relative w-full sm:max-w-2xl bg-white rounded-t-[28px] sm:rounded-3xl shadow-2xl border-t sm:border border-stone-200 overflow-hidden flex flex-col z-10 max-h-[92vh]"
-              >
-                {/* Mobile Drag Indicator */}
-                <div className="w-10 h-1 rounded-full bg-stone-300 mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
-
-                {/* Header Top Bar */}
-                <div className="px-5 py-3 border-b border-stone-100 flex items-center justify-between bg-stone-50/80 shrink-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className={`px-2.5 py-0.5 rounded-xl text-[10px] font-extrabold border ${getCategoryBadgeClass(detailItem.categoryId)}`}>
-                      {getCategory(detailItem.categoryId)?.label}
-                    </span>
-                    <h3 className="text-xs sm:text-sm font-extrabold text-stone-900 truncate">
-                      {detailItem.title}
-                    </h3>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setDetailItem(null)}
-                    className="p-1 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition cursor-pointer"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-
-                {/* Modal Body: High-Res Image & Info */}
-                <div className="overflow-y-auto p-4 sm:p-6 space-y-4 flex-1">
-                  {/* Image Display */}
-                  <div className="relative rounded-2xl overflow-hidden bg-stone-100 border border-stone-200 flex items-center justify-center max-h-[55vh]">
-                    <img
-                      src={detailItem.imageUrl}
-                      alt={detailItem.title}
-                      className="max-h-[52vh] w-auto max-w-full object-contain rounded-xl"
-                    />
-                  </div>
-
-                  {/* Details Card */}
-                  <div className="bg-[#FAF7F2] rounded-2xl p-4 border border-[#EADBCE]/80 space-y-2.5">
-                    <div>
-                      <h4 className="text-sm font-extrabold text-stone-900">
-                        {detailItem.title}
-                      </h4>
-                      {detailItem.notes ? (
-                        <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                          {detailItem.notes}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-stone-400 italic mt-1">
-                          Tidak ada catatan konsep tambahan.
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-stone-500 pt-2 border-t border-[#EADBCE]/60 flex-wrap gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <Tag size={12} className="text-stone-400" />
-                        <span>Kategori: <strong>{getCategory(detailItem.categoryId)?.label}</strong></span>
-                      </div>
-                      {detailItem.source && (
-                        <div className="flex items-center gap-1.5">
-                          <ExternalLink size={12} className="text-stone-400" />
-                          <span>Sumber: <strong>{detailItem.source}</strong></span>
-                        </div>
-                      )}
-                      {detailItem.createdAt && (
-                        <div className="flex items-center gap-1.5 text-stone-400">
-                          <Calendar size={12} />
-                          <span>Ditambahkan: {detailItem.createdAt}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer Action Buttons */}
-                <div className="px-5 py-3 border-t border-stone-100 bg-stone-50/90 flex items-center justify-between gap-2 shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadImage(detailItem)}
-                      className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-stone-900 hover:bg-stone-800 text-white transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-                    >
-                      <Download size={14} />
-                      <span>Unduh Foto</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEdit(detailItem)}
-                      className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-stone-100 border border-stone-200 text-stone-700 transition flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Edit3 size={14} />
-                      <span>Edit Detail</span>
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteItem(detailItem.id, detailItem.title)}
-                    className="p-2 rounded-xl text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition cursor-pointer"
-                    title="Hapus foto ini"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </motion.div>
             </div>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
 
-      {/* ======================================================== */}
-      {/* 2. UPLOAD / EDIT FOTO MODAL (Portalled to document.body)  */}
-      {/* ======================================================== */}
-      {typeof document !== 'undefined' && createPortal(
-        <AnimatePresence>
-          {isUploadModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-              {/* Backdrop */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-stone-950/60 backdrop-blur-xs"
-                onClick={() => setIsUploadModalOpen(false)}
+            {/* Live Search inside Category */}
+            <div className="relative w-full md:w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input
+                type="text"
+                placeholder="Cari dalam kategori ini..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-white border border-[#EADBCE] rounded-xl text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800"
               />
+              {searchQuery && (
+                <button 
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          </div>
 
-              {/* Modal Container */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 30 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                onClick={(e) => e.stopPropagation()}
-                className="relative w-full sm:max-w-lg bg-white rounded-t-[28px] sm:rounded-3xl shadow-2xl border-t sm:border border-stone-200 overflow-hidden flex flex-col z-10 max-h-[90vh]"
-              >
-                {/* Drag Pill */}
-                <div className="w-10 h-1 rounded-full bg-stone-300 mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
-
-                {/* Header */}
-                <div className="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between bg-gradient-to-r from-fuchsia-50/80 via-white to-rose-50/70 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-fuchsia-600 to-rose-600 text-white flex items-center justify-center shadow-xs">
-                      <Upload size={16} />
+          {/* Category Gallery Content */}
+          {activeSubCategory === 'all' && !searchQuery ? (
+            /* Mode 1: Grouped by Sub-Categories with Section Headers */
+            <div className="space-y-8">
+              {(currentCategoryObj.subCategories || []).map(sub => {
+                const subPhotos = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === sub.id);
+                return (
+                  <div key={sub.id} className="space-y-3">
+                    <div className="flex items-center justify-between gap-3 border-b border-[#EADBCE] pb-2">
+                      <div className="flex items-center gap-2">
+                        <Folder size={17} className="text-amber-700" />
+                        <h3 className="text-sm sm:text-base font-extrabold text-stone-900 tracking-tight">
+                          {sub.label}
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 text-stone-700 border border-stone-200">
+                          {subPhotos.length} foto
+                        </span>
+                      </div>
+                      
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAdd(currentCategoryObj.id, sub.id)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold text-amber-900 hover:bg-amber-100/60 border border-amber-200/80 transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus size={13} />
+                        <span>Tambah Foto</span>
+                      </button>
                     </div>
-                    <div>
-                      <h3 className="text-sm sm:text-base font-bold text-stone-900">
-                        {editingItem ? 'Edit Foto Moodboard' : 'Upload Foto Inspirasi Baru'}
-                      </h3>
-                      <p className="text-[11px] text-stone-500">
-                        Upload dari galeri lokal HP/Laptop atau masukkan tautan URL
-                      </p>
-                    </div>
-                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsUploadModalOpen(false)}
-                    className="p-1 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-
-                {/* Form Body */}
-                <form onSubmit={handleSaveItem} className="p-5 overflow-y-auto space-y-4 text-xs flex-1">
-                  {/* Image Upload Box & Preview */}
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-600 mb-1.5">
-                      Pilih / Upload Foto <span className="text-rose-500">*</span>
-                    </label>
-
-                    {formData.imageUrl ? (
-                      <div className="relative rounded-2xl overflow-hidden border border-stone-200 bg-stone-50 aspect-[16/9] flex items-center justify-center group">
-                        <img
-                          src={formData.imageUrl}
-                          alt="Preview"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-stone-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="px-3 py-1.5 rounded-xl bg-white text-stone-900 font-bold text-xs shadow-md hover:bg-stone-100"
-                          >
-                            Ganti Foto
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
-                            className="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-bold text-xs shadow-md hover:bg-rose-700"
-                          >
-                            Hapus
-                          </button>
-                        </div>
+                    {subPhotos.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {subPhotos.map(item => (
+                          <PhotoCard
+                            key={item.id}
+                            item={item}
+                            categoryObj={currentCategoryObj}
+                            subCatLabel={sub.label}
+                            onViewDetail={setDetailItem}
+                            onEdit={handleOpenEdit}
+                            onDelete={handleDeleteItem}
+                          />
+                        ))}
                       </div>
                     ) : (
                       <div 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-stone-300 hover:border-fuchsia-400 hover:bg-fuchsia-50/20 rounded-2xl p-6 text-center transition cursor-pointer flex flex-col items-center justify-center gap-2"
+                        onClick={() => handleOpenAdd(currentCategoryObj.id, sub.id)}
+                        className="p-8 rounded-3xl border-2 border-dashed border-stone-200 hover:border-amber-400 bg-white/50 hover:bg-amber-50/30 text-center transition cursor-pointer group"
                       >
-                        <div className="w-12 h-12 rounded-2xl bg-stone-100 text-stone-500 flex items-center justify-center shadow-xs">
-                          {isCompressing ? <RotateCcw size={20} className="animate-spin text-fuchsia-600" /> : <Upload size={20} />}
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-stone-800">
-                            {isCompressing ? 'Sedang mengompresi foto...' : 'Klik untuk Pilih Foto dari Perangkat'}
-                          </p>
-                          <p className="text-[11px] text-stone-400 mt-0.5">
-                            Dukungan JPEG, PNG, WEBP (Otomatis dikompresi agar cepat)
-                          </p>
-                        </div>
+                        <ImageIcon size={28} className="mx-auto text-stone-300 group-hover:text-amber-600 transition mb-2" />
+                        <p className="text-xs font-bold text-stone-700">
+                          Belum ada foto di "{sub.label}"
+                        </p>
+                        <p className="text-[11px] text-stone-400 mt-0.5">
+                          Klik untuk mengunggah foto gaun, dekorasi, atau inspirasi untuk sub-kategori ini.
+                        </p>
                       </div>
                     )}
-
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="hidden"
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Mode 2: Specific Sub-Category Filtered Masonry */
+            <div>
+              {filteredItems.length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 text-center border border-[#EADBCE] shadow-xs">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center mx-auto mb-3">
+                    <ImageIcon size={28} />
+                  </div>
+                  <h3 className="text-sm font-bold text-stone-800">Tidak ada foto ditemukan</h3>
+                  <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
+                    {searchQuery ? `Tidak ada hasil untuk kata kunci "${searchQuery}".` : 'Belum ada foto yang diunggah pada sub-kategori ini.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAdd(currentCategoryObj.id, activeSubCategory !== 'all' ? activeSubCategory : null)}
+                    className="mt-4 px-4 py-2 rounded-xl text-xs font-bold bg-stone-900 text-white hover:bg-stone-800 transition inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Upload size={14} />
+                    <span>Upload Foto Sekarang</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filteredItems.map(item => (
+                    <PhotoCard
+                      key={item.id}
+                      item={item}
+                      categoryObj={getCategory(item.categoryId)}
+                      subCatLabel={getSubCategoryLabel(item.categoryId, item.subCategoryId)}
+                      onViewDetail={setDetailItem}
+                      onEdit={handleOpenEdit}
+                      onDelete={handleDeleteItem}
                     />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ========================================================================= */
+        /* LEVEL 1: OVERVIEW KATALOG KATEGORI (CATEGORY BOARDS OVERVIEW)             */
+        /* ========================================================================= */
+        <div className="space-y-5 animate-fade-in">
+          {/* Top Banner & Header */}
+          <div className="bg-white rounded-3xl p-4 sm:p-6 border border-[#EADBCE] shadow-xs">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-fuchsia-600 via-rose-500 to-amber-500 text-white flex items-center justify-center shadow-xs shrink-0">
+                  <Palette size={24} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-lg sm:text-xl font-extrabold text-stone-900 tracking-tight">
+                      Moodboard &amp; Konsep Visual
+                    </h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-fuchsia-50 text-fuchsia-900 border border-fuchsia-200">
+                      {safeCategories.length} Papan Kategori
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-stone-100 text-stone-700 border border-stone-200">
+                      {safeItems.length} Foto Terdaftar
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Pilih kategori untuk membuka galeri foto dan sub-kategori spesifik
+                  </p>
+                </div>
+              </div>
 
-                    {/* Or URL input alternative */}
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="text-[10px] text-stone-400 uppercase font-semibold">Atau URL:</span>
-                      <input
-                        type="url"
-                        placeholder="Tempel tautan URL gambar (https://...)"
-                        value={formData.imageUrl.startsWith('data:') ? '' : formData.imageUrl}
-                        onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
-                        className="flex-1 px-2.5 py-1 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800"
-                      />
+              {/* Quick Action Buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* View Toggle Button */}
+                <div className="p-1 bg-stone-100 rounded-xl flex items-center gap-1 border border-stone-200/80">
+                  <button
+                    type="button"
+                    onClick={() => setLevel1Mode('boards')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                      level1Mode === 'boards' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-500 hover:text-stone-800'
+                    }`}
+                    title="Tampilan Papan Kategori"
+                  >
+                    <Grid size={13} />
+                    <span>Papan Kategori</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLevel1Mode('all-photos')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                      level1Mode === 'all-photos' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-500 hover:text-stone-800'
+                    }`}
+                    title="Tampilan Seluruh Foto"
+                  >
+                    <ImageIcon size={13} />
+                    <span>Semua Foto</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(true)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-800 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Kelola, tambah, ubah warna atau hapus kategori induk"
+                >
+                  <Tag size={14} className="text-stone-600" />
+                  <span>Kelola Kategori</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleOpenAdd()}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-stone-900 to-stone-800 hover:from-fuchsia-700 hover:to-rose-700 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Upload size={14} />
+                  <span>Upload Foto</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Level 1 Search */}
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-bold text-stone-600">
+              {level1Mode === 'boards' ? 'Daftar Kategori Moodboard Pernikahan' : `Seluruh Foto Inspirasi (${filteredItems.length})`}
+            </p>
+
+            <div className="relative w-full md:w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input
+                type="text"
+                placeholder="Cari konsep, judul, catatan..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-white border border-[#EADBCE] rounded-xl text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800"
+              />
+              {searchQuery && (
+                <button 
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Display Mode 1: Boards Grid (Overview) */}
+          {level1Mode === 'boards' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {safeCategories.map(cat => {
+                const covers = getCategoryCovers(cat.id);
+                const catPreset = getCategoryPreset(cat.id);
+                const subCats = cat.subCategories || [];
+                const photoCount = safeItems.filter(i => i.categoryId === cat.id).length;
+
+                return (
+                  <motion.div
+                    key={cat.id}
+                    whileHover={{ y: -3 }}
+                    onClick={() => {
+                      setActiveCategoryView(cat.id);
+                      setActiveSubCategory('all');
+                      setSearchQuery('');
+                    }}
+                    className="nude-card rounded-3xl overflow-hidden border border-[#EADBCE] hover:border-amber-400/90 transition shadow-xs hover:shadow-md cursor-pointer flex flex-col group bg-white"
+                  >
+                    {/* Cover Preview Area */}
+                    <div className="h-44 sm:h-48 w-full bg-stone-100 relative overflow-hidden">
+                      {covers.length >= 3 ? (
+                        <div className="grid grid-cols-3 h-full gap-0.5">
+                          <img src={covers[0]} alt={cat.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                          <img src={covers[1]} alt={cat.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                          <img src={covers[2]} alt={cat.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        </div>
+                      ) : covers.length > 0 ? (
+                        <img 
+                          src={covers[0]} 
+                          alt={cat.label} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-stone-50 to-stone-100 text-stone-300">
+                          <Palette size={36} className="text-stone-300 group-hover:scale-110 transition-transform" />
+                          <span className="text-[11px] font-bold text-stone-400 mt-2">Belum ada foto</span>
+                        </div>
+                      )}
+
+                      {/* Floating Badge */}
+                      <div className="absolute top-3 left-3 z-10">
+                        <span className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold shadow-xs ${catPreset.badgeColor} backdrop-blur-md`}>
+                          {cat.label}
+                        </span>
+                      </div>
+
+                      {/* Photo counter chip */}
+                      <div className="absolute bottom-3 right-3 z-10">
+                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-black/70 text-white backdrop-blur-sm shadow-xs flex items-center gap-1">
+                          <ImageIcon size={11} />
+                          <span>{photoCount} Foto</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Content Body */}
+                    <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-base font-extrabold text-stone-900 group-hover:text-amber-800 transition">
+                          {cat.label}
+                        </h3>
+                        <p className="text-xs text-stone-500 mt-1 line-clamp-2 leading-relaxed">
+                          {cat.desc}
+                        </p>
+
+                        {/* Sub-Category Pills Preview */}
+                        <div className="mt-3 flex flex-wrap gap-1">
+                          {subCats.slice(0, 3).map(sub => (
+                            <span 
+                              key={sub.id} 
+                              className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-600 text-[10px] font-medium"
+                            >
+                              {sub.label}
+                            </span>
+                          ))}
+                          {subCats.length > 3 && (
+                            <span className="px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-500 text-[10px] font-bold">
+                              +{subCats.length - 3} lainnya
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card Footer Bar */}
+                      <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-amber-700">
+                        <span>{subCats.length} Sub-Kategori</span>
+                        <div className="flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                          <span>Buka Moodboard</span>
+                          <ArrowRight size={13} />
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Display Mode 2: All Photos Masonry Grid */}
+          {level1Mode === 'all-photos' && (
+            <div>
+              {filteredItems.length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 text-center border border-[#EADBCE] shadow-xs">
+                  <div className="w-14 h-14 rounded-2xl bg-fuchsia-50 text-fuchsia-600 flex items-center justify-center mx-auto mb-3">
+                    <ImageIcon size={28} />
+                  </div>
+                  <h3 className="text-sm font-bold text-stone-800">Belum ada foto dalam moodboard</h3>
+                  <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
+                    Mulai bangun moodboard pernikahan dengan mengunggah foto gaun, dekorasi, riasan, atau bunga.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAdd()}
+                    className="mt-4 px-4 py-2 rounded-xl text-xs font-bold bg-stone-900 text-white hover:bg-stone-800 transition inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Upload size={14} />
+                    <span>Upload Foto Sekarang</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filteredItems.map(item => (
+                    <PhotoCard
+                      key={item.id}
+                      item={item}
+                      categoryObj={getCategory(item.categoryId)}
+                      subCatLabel={getSubCategoryLabel(item.categoryId, item.subCategoryId)}
+                      onViewDetail={setDetailItem}
+                      onEdit={handleOpenEdit}
+                      onDelete={handleDeleteItem}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 1: UPLOAD / EDIT MOODBOARD PHOTO                                     */}
+      {/* ========================================================================= */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isUploadModalOpen && (
+            <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/60 backdrop-blur-xs overscroll-contain">
+              <motion.div
+                initial={{ opacity: 0, y: 30, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 30, scale: 0.98 }}
+                transition={{ duration: 0.2 }}
+                className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200/80 overflow-hidden flex flex-col max-h-[92vh]"
+              >
+                {/* Mobile Drag Indicator */}
+                <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto mt-2.5 mb-1 sm:hidden" />
+
+                {/* Header */}
+                <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center">
+                      <ImageIcon size={18} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-stone-900">
+                        {editingItem ? 'Edit Inspirasi Moodboard' : 'Upload Foto Inspirasi'}
+                      </h3>
+                      <p className="text-[11px] text-stone-500">
+                        Tambahkan foto ke dalam kategori &amp; sub-kategori visual
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsUploadModalOpen(false)}
+                    className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition cursor-pointer"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                {/* Scrollable Form Body */}
+                <form onSubmit={handleSaveItem} className="p-5 overflow-y-auto space-y-4 flex-1">
+                  {/* Category & Sub-Category Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Category Select */}
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 mb-1">
+                        Kategori Induk <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={formData.categoryId}
+                        onChange={(e) => {
+                          const newCatId = e.target.value;
+                          const catObj = safeCategories.find(c => c.id === newCatId);
+                          const firstSub = catObj?.subCategories?.[0]?.id || 'utama';
+                          setFormData(prev => ({
+                            ...prev,
+                            categoryId: newCatId,
+                            subCategoryId: firstSub
+                          }));
+                          setIsCreatingCustomSubCat(false);
+                        }}
+                        className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:border-stone-800"
+                      >
+                        {safeCategories.map(cat => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Sub-Category Select */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-stone-700">
+                          Sub-Kategori <span className="text-rose-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsCreatingCustomSubCat(!isCreatingCustomSubCat)}
+                          className="text-[10px] font-bold text-amber-800 hover:underline"
+                        >
+                          {isCreatingCustomSubCat ? 'Pilih yang ada' : '+ Buat Baru'}
+                        </button>
+                      </div>
+
+                      {isCreatingCustomSubCat ? (
+                        <input
+                          type="text"
+                          placeholder="Nama sub-kategori baru..."
+                          value={customSubCatName}
+                          onChange={(e) => setCustomSubCatName(e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-amber-300 rounded-xl text-xs text-stone-800 focus:outline-none focus:border-amber-600"
+                        />
+                      ) : (
+                        <select
+                          value={formData.subCategoryId}
+                          onChange={(e) => setFormData({ ...formData, subCategoryId: e.target.value })}
+                          className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:border-stone-800"
+                        >
+                          {(safeCategories.find(c => c.id === formData.categoryId)?.subCategories || []).map(sub => (
+                            <option key={sub.id} value={sub.id}>
+                              {sub.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   </div>
 
-                  {/* Judul Inspirasi */}
+                  {/* Title */}
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-600 mb-1">
-                      Judul / Nama Konsep <span className="text-rose-500">*</span>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Judul / Konsep <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
-                      required
-                      placeholder="Contoh: Gaun Resepsi Satin, Dekorasi Lorong Masuk, Buket Lily..."
+                      placeholder="Contoh: Gaun Pengantin Minimalis A-Line & Veil"
                       value={formData.title}
-                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                      className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 outline-none focus:border-stone-800 focus:bg-white"
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs text-stone-800 focus:outline-none focus:border-stone-800"
                     />
                   </div>
 
-                  {/* Kategori */}
+                  {/* Image Picker: File Upload or External URL */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-600">
-                        Kategori Moodboard <span className="text-rose-500">*</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsUploadModalOpen(false);
-                          setIsCategoryModalOpen(true);
-                        }}
-                        className="text-[10px] text-fuchsia-600 hover:text-fuchsia-800 font-bold"
-                      >
-                        + Tambah Kategori
-                      </button>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Pilihan Gambar <span className="text-rose-500">*</span>
+                    </label>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          className="hidden"
+                          id="moodboard-file-input"
+                        />
+                        <label
+                          htmlFor="moodboard-file-input"
+                          className="flex-1 py-2.5 px-3 border border-dashed border-stone-300 hover:border-stone-800 bg-stone-50 hover:bg-stone-100 rounded-xl text-xs font-bold text-stone-700 flex items-center justify-center gap-2 cursor-pointer transition"
+                        >
+                          <Upload size={14} className="text-amber-800" />
+                          <span>{isCompressing ? 'Mengompresi Gambar...' : 'Pilih File (Kamera / Galeri)'}</span>
+                        </label>
+                      </div>
+
+                      <div className="relative">
+                        <input
+                          type="url"
+                          placeholder="Atau tempel tautan URL gambar (https://...)"
+                          value={formData.imageUrl}
+                          onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                          className="w-full pl-3 pr-8 py-2 bg-white border border-stone-200 rounded-xl text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800"
+                        />
+                        {formData.imageUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, imageUrl: '' })}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    <select
-                      value={formData.categoryId}
-                      onChange={(e) => setFormData(prev => ({ ...prev, categoryId: e.target.value }))}
-                      className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 outline-none focus:border-stone-800 focus:bg-white cursor-pointer"
-                    >
-                      {safeCategories.map(c => (
-                        <option key={c.id} value={c.id}>{c.label}</option>
-                      ))}
-                    </select>
+                    {/* Image Preview Box */}
+                    {formData.imageUrl && (
+                      <div className="mt-2.5 relative rounded-2xl overflow-hidden border border-stone-200 bg-stone-50 aspect-video max-h-48 flex items-center justify-center">
+                        <img 
+                          src={formData.imageUrl} 
+                          alt="Preview" 
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                        <span className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                          Pratinjau Gambar
+                        </span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Catatan / Konsep Detail */}
+                  {/* Notes / Concept Details */}
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-600 mb-1">
-                      Catatan / Detail Konsep (Opsional)
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Catatan Konsep &amp; Detail Arahan
                     </label>
                     <textarea
-                      rows={2}
-                      placeholder="Deskripsi detail, preferensi warna, jenis kain, jenis bunga, atau arahan untuk vendor..."
+                      rows={3}
+                      placeholder="Tuliskan palet warna, siluet gaun, jenis bunga, atau catatan khusus untuk vendor..."
                       value={formData.notes}
-                      onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                      className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 outline-none focus:border-stone-800 focus:bg-white resize-none"
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800"
                     />
                   </div>
 
-                  {/* Sumber Inspirasi */}
+                  {/* Source Reference / Vendor */}
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-600 mb-1">
-                      Sumber Inspirasi / Vendor (Opsional)
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Sumber Referensi / Vendor
                     </label>
                     <input
                       type="text"
-                      placeholder="Contoh: Pinterest, @dekorasi_wedding, Bridestory..."
+                      placeholder="Contoh: Pinterest, Atelier Gaun, Florist Studio"
                       value={formData.source}
-                      onChange={(e) => setFormData(prev => ({ ...prev, source: e.target.value }))}
-                      className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 outline-none focus:border-stone-800 focus:bg-white"
+                      onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                      className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-stone-800"
                     />
                   </div>
 
-                  {/* Submit / Cancel Buttons (Pinned Footer) */}
-                  <div className="flex items-center justify-end gap-2 pt-4 border-t border-stone-100">
+                  {/* Actions Footer */}
+                  <div className="pt-3 border-t border-stone-100 flex items-center justify-end gap-2">
                     <button
                       type="button"
                       onClick={() => setIsUploadModalOpen(false)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 hover:bg-stone-100 transition cursor-pointer"
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 hover:bg-stone-100 transition"
                     >
                       Batal
                     </button>
                     <button
                       type="submit"
                       disabled={isCompressing}
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-stone-900 to-stone-800 hover:from-fuchsia-700 hover:to-rose-700 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                      className="px-5 py-2 rounded-xl text-xs font-bold bg-stone-900 text-white hover:bg-stone-800 transition shadow-xs disabled:opacity-50"
                     >
-                      <Check size={14} />
-                      <span>{editingItem ? 'Simpan Perubahan' : 'Tambahkan ke Moodboard'}</span>
+                      {editingItem ? 'Simpan Perubahan' : 'Upload ke Moodboard'}
                     </button>
                   </div>
                 </form>
@@ -931,54 +1281,333 @@ export function MoodboardView({
         document.body
       )}
 
-      {/* ======================================================== */}
-      {/* 3. KELOLA KATEGORI MODAL (Portalled to document.body)     */}
-      {/* ======================================================== */}
+      {/* ========================================================================= */}
+      {/* MODAL 2: DETAIL LIGHTBOX POPUP MODAL (RESOLUSI BESAR + DOWNLOAD)         */}
+      {/* ========================================================================= */}
       {typeof document !== 'undefined' && createPortal(
         <AnimatePresence>
-          {isCategoryModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-              {/* Backdrop */}
+          {detailItem && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md overscroll-contain">
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-stone-950/60 backdrop-blur-xs"
-                onClick={() => {
-                  setIsCategoryModalOpen(false);
-                  setIsAddingCategory(false);
-                  setEditingCategoryId(null);
-                }}
-              />
-
-              {/* Modal Container */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 30 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                onClick={(e) => e.stopPropagation()}
-                className="relative w-full sm:max-w-md bg-white rounded-t-[28px] sm:rounded-3xl shadow-2xl border-t sm:border border-stone-200 overflow-hidden flex flex-col z-10 max-h-[88vh]"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[92vh] border border-white/20"
               >
-                {/* Drag Pill */}
-                <div className="w-10 h-1 rounded-full bg-stone-300 mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
+                {/* Image Section */}
+                <div className="md:w-3/5 bg-black flex items-center justify-center relative min-h-[300px] md:min-h-[500px]">
+                  <img
+                    src={detailItem.imageUrl}
+                    alt={detailItem.title}
+                    className="w-full h-full max-h-[500px] md:max-h-[600px] object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setDetailItem(null)}
+                    className="md:hidden absolute top-3 right-3 p-2 rounded-full bg-black/60 text-white hover:bg-black/90 transition"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Details Sidebar */}
+                <div className="md:w-2/5 p-5 sm:p-6 flex flex-col justify-between overflow-y-auto bg-[#FAF7F2]">
+                  <div className="space-y-4">
+                    <div className="hidden md:flex items-center justify-between">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400">
+                        Detail Konsep Moodboard
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setDetailItem(null)}
+                        className="p-1 rounded-lg text-stone-400 hover:text-stone-700 transition"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    {/* Badges: Category & Sub-Category */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold ${getCategoryBadgeClass(detailItem.categoryId)}`}>
+                        {getCategory(detailItem.categoryId)?.label}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white text-stone-800 border border-stone-200 shadow-2xs">
+                        {getSubCategoryLabel(detailItem.categoryId, detailItem.subCategoryId)}
+                      </span>
+                    </div>
+
+                    {/* Title */}
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-extrabold text-stone-900 tracking-tight leading-snug">
+                        {detailItem.title}
+                      </h2>
+                      {detailItem.createdAt && (
+                        <p className="text-[10px] text-stone-400 mt-1">
+                          Ditambahkan pada {detailItem.createdAt}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Notes Box */}
+                    {detailItem.notes && (
+                      <div className="bg-white p-3.5 rounded-2xl border border-[#EADBCE] text-xs text-stone-700 leading-relaxed shadow-2xs">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block mb-1">
+                          Catatan Arahan:
+                        </span>
+                        {detailItem.notes}
+                      </div>
+                    )}
+
+                    {/* Source / Vendor Link */}
+                    {detailItem.source && (
+                      <div className="text-xs text-stone-600 flex items-center gap-1.5">
+                        <span className="font-semibold text-stone-400">Sumber:</span>
+                        <span className="font-bold text-stone-800">{detailItem.source}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Bar */}
+                  <div className="pt-4 border-t border-stone-200 mt-5 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadImage(detailItem)}
+                      className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-stone-900 hover:bg-stone-800 text-white transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                    >
+                      <Download size={14} />
+                      <span>Unduh Gambar</span>
+                    </button>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(detailItem)}
+                        className="py-2 px-3 rounded-xl text-xs font-bold bg-white border border-stone-300 hover:bg-stone-50 text-stone-800 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <Edit3 size={13} />
+                        <span>Edit Info</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteItem(detailItem.id, detailItem.title)}
+                        className="py-2 px-3 rounded-xl text-xs font-bold bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <Trash2 size={13} />
+                        <span>Hapus</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 3: SUB-CATEGORY MANAGER MODAL (CRUD SUB-KATEGORI KHUSUS)             */}
+      {/* ========================================================================= */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isSubCategoryModalOpen && currentCategoryObj && (
+            <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/60 backdrop-blur-xs overscroll-contain">
+              <motion.div
+                initial={{ opacity: 0, y: 30, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 30, scale: 0.98 }}
+                transition={{ duration: 0.2 }}
+                className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200/80 overflow-hidden flex flex-col max-h-[85vh]"
+              >
+                <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto mt-2.5 mb-1 sm:hidden" />
 
                 {/* Header */}
-                <div className="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between bg-gradient-to-r from-amber-50/80 via-white to-fuchsia-50/70 shrink-0">
+                <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-600 to-fuchsia-600 text-white flex items-center justify-center shadow-xs">
-                      <Tag size={16} />
-                    </div>
+                    <Layers size={18} className="text-amber-800" />
                     <div>
-                      <h3 className="text-sm sm:text-base font-bold text-stone-900">
-                        Kelola Kategori Moodboard
+                      <h3 className="text-sm font-bold text-stone-900">
+                        Sub-Kategori: {currentCategoryObj.label}
                       </h3>
                       <p className="text-[11px] text-stone-500">
-                        Tambah, ganti nama, ubah warna, atau hapus kategori
+                        Atur pembagian kelompok inspirasi di kategori ini
                       </p>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSubCategoryModalOpen(false);
+                      setIsAddingSubCat(false);
+                      setEditingSubCatId(null);
+                    }}
+                    className="p-1 rounded-lg text-stone-400 hover:text-stone-700"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
 
+                {/* Body */}
+                <div className="p-5 overflow-y-auto space-y-4 flex-1">
+                  {/* Form Add or Edit Sub-Category */}
+                  {(isAddingSubCat || editingSubCatId) && (
+                    <form onSubmit={handleSaveSubCategory} className="p-3.5 bg-amber-50/50 rounded-2xl border border-amber-200 space-y-3">
+                      <span className="text-xs font-bold text-stone-900 block">
+                        {editingSubCatId ? 'Edit Nama Sub-Kategori' : 'Tambah Sub-Kategori Baru'}
+                      </span>
+                      
+                      <input
+                        type="text"
+                        placeholder="Contoh: Altar, Pelaminan, Handbouquet..."
+                        value={subCatFormLabel}
+                        onChange={(e) => setSubCatFormLabel(e.target.value)}
+                        required
+                        autoFocus
+                        className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs text-stone-800 focus:outline-none focus:border-stone-800"
+                      />
+
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingSubCat(false);
+                            setEditingSubCatId(null);
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-stone-500 hover:bg-stone-200/50"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-stone-900 text-white hover:bg-stone-800 shadow-xs"
+                        >
+                          Simpan
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Add Sub-Category Button */}
+                  {!isAddingSubCat && !editingSubCatId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingSubCatId(null);
+                        setSubCatFormLabel('');
+                        setIsAddingSubCat(true);
+                      }}
+                      className="w-full py-2.5 px-3 rounded-2xl border border-dashed border-stone-300 hover:border-stone-800 hover:bg-stone-50 text-stone-700 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>Tambah Sub-Kategori Baru</span>
+                    </button>
+                  )}
+
+                  {/* Sub-Category List */}
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                      Daftar Sub-Kategori ({currentCategoryObj.subCategories?.length || 0})
+                    </span>
+
+                    <div className="divide-y divide-stone-100 bg-[#FAF7F2] rounded-2xl border border-[#EADBCE]/80 overflow-hidden">
+                      {(currentCategoryObj.subCategories || []).map(sub => {
+                        const count = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === sub.id).length;
+                        return (
+                          <div 
+                            key={sub.id}
+                            className="p-3 flex items-center justify-between gap-2 hover:bg-white transition-colors"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <Folder size={14} className="text-amber-700 shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-stone-900 truncate">
+                                  {sub.label}
+                                </p>
+                                <p className="text-[10px] text-stone-400">
+                                  {count} foto terdaftar
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsAddingSubCat(false);
+                                  setEditingSubCatId(sub.id);
+                                  setSubCatFormLabel(sub.label);
+                                }}
+                                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition"
+                                title="Edit Sub-Kategori"
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSubCategory(sub.id, sub.label)}
+                                className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                title="Hapus Sub-Kategori"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-5 py-3 border-t border-stone-100 bg-stone-50/80 flex items-center justify-end shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSubCategoryModalOpen(false);
+                      setIsAddingSubCat(false);
+                      setEditingSubCatId(null);
+                    }}
+                    className="px-4 py-1.5 rounded-xl bg-stone-900 text-white font-bold text-xs hover:bg-stone-800 transition cursor-pointer"
+                  >
+                    Selesai
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 4: CATEGORY MANAGER MODAL (CRUD KATEGORI INDUK)                     */}
+      {/* ========================================================================= */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isCategoryModalOpen && (
+            <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/60 backdrop-blur-xs overscroll-contain">
+              <motion.div
+                initial={{ opacity: 0, y: 30, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 30, scale: 0.98 }}
+                transition={{ duration: 0.2 }}
+                className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200/80 overflow-hidden flex flex-col max-h-[85vh]"
+              >
+                <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto mt-2.5 mb-1 sm:hidden" />
+
+                {/* Header */}
+                <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
+                  <div className="flex items-center gap-2">
+                    <Tag size={18} className="text-amber-800" />
+                    <div>
+                      <h3 className="text-sm font-bold text-stone-900">Kelola Kategori Induk</h3>
+                      <p className="text-[11px] text-stone-500">
+                        Tambah, ubah nama, palet warna, atau hapus kategori
+                      </p>
+                    </div>
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
@@ -986,65 +1615,66 @@ export function MoodboardView({
                       setIsAddingCategory(false);
                       setEditingCategoryId(null);
                     }}
-                    className="p-1 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                    className="p-1 rounded-lg text-stone-400 hover:text-stone-700"
                   >
-                    <X size={18} />
+                    <X size={16} />
                   </button>
                 </div>
 
-                {/* Body Content */}
-                <div className="p-5 overflow-y-auto space-y-4 text-xs flex-1">
-                  {/* Inline Form to Add / Edit Category */}
+                {/* Body */}
+                <div className="p-5 overflow-y-auto space-y-4 flex-1">
                   {(isAddingCategory || editingCategoryId) && (
-                    <form onSubmit={handleSaveCategory} className="p-4 bg-[#FAF7F2] rounded-2xl border border-[#EADBCE] space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-stone-800">
-                          {editingCategoryId ? 'Ubah Kategori' : 'Tambah Kategori Baru'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsAddingCategory(false);
-                            setEditingCategoryId(null);
-                          }}
-                          className="text-stone-400 hover:text-stone-600"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-
+                    <form onSubmit={handleSaveCategory} className="p-3.5 bg-amber-50/50 rounded-2xl border border-amber-200 space-y-3">
+                      <span className="text-xs font-bold text-stone-900 block">
+                        {editingCategoryId ? 'Edit Kategori' : 'Tambah Kategori Baru'}
+                      </span>
+                      
                       <div>
-                        <label className="block text-[10px] font-bold uppercase text-stone-600 mb-1">
-                          Nama Kategori <span className="text-rose-500">*</span>
+                        <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                          Nama Kategori
                         </label>
                         <input
                           type="text"
-                          required
-                          autoFocus
-                          placeholder="Contoh: Sepatu & Aksesoris, Catering, Seserahan..."
+                          placeholder="Contoh: Souvenir &amp; Hadiah..."
                           value={categoryFormData.label}
-                          onChange={(e) => setCategoryFormData(prev => ({ ...prev, label: e.target.value }))}
-                          className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs text-stone-900 outline-none focus:border-stone-800"
+                          onChange={(e) => setCategoryFormData({ ...categoryFormData, label: e.target.value })}
+                          required
+                          className="w-full px-3 py-1.5 bg-white border border-stone-200 rounded-xl text-xs text-stone-800 focus:outline-none focus:border-stone-800"
                         />
                       </div>
 
-                      {/* Color Palette Picker */}
                       <div>
-                        <label className="block text-[10px] font-bold uppercase text-stone-600 mb-1.5">
-                          Warna Label
+                        <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                          Deskripsi Singkat
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Penjelasan singkat konsep kategori ini..."
+                          value={categoryFormData.desc}
+                          onChange={(e) => setCategoryFormData({ ...categoryFormData, desc: e.target.value })}
+                          className="w-full px-3 py-1.5 bg-white border border-stone-200 rounded-xl text-xs text-stone-800 focus:outline-none focus:border-stone-800"
+                        />
+                      </div>
+
+                      {/* Color Presets */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-stone-600 mb-1.5">
+                          Warna Tema Badge
                         </label>
                         <div className="flex items-center gap-2 flex-wrap">
                           {COLOR_PRESETS.map(preset => (
                             <button
                               key={preset.id}
                               type="button"
-                              onClick={() => setCategoryFormData(prev => ({ ...prev, color: preset.id }))}
-                              className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all cursor-pointer ${preset.bg} ${
-                                categoryFormData.color === preset.id ? 'ring-2 ring-stone-900 ring-offset-2 scale-110 shadow-xs' : 'opacity-70 hover:opacity-100'
+                              onClick={() => setCategoryFormData({ ...categoryFormData, color: preset.id })}
+                              className={`w-6 h-6 rounded-full ${preset.bg} flex items-center justify-center transition-transform cursor-pointer ${
+                                categoryFormData.color === preset.id ? 'ring-2 ring-stone-900 scale-110' : 'hover:scale-105'
                               }`}
                               title={preset.label}
                             >
-                              {categoryFormData.color === preset.id && <Check size={14} className="text-white stroke-[3]" />}
+                              {categoryFormData.color === preset.id && (
+                                <Check size={12} className="text-white" />
+                              )}
                             </button>
                           ))}
                         </div>
@@ -1077,7 +1707,7 @@ export function MoodboardView({
                       type="button"
                       onClick={() => {
                         setEditingCategoryId(null);
-                        setCategoryFormData({ id: '', label: '', color: 'amber' });
+                        setCategoryFormData({ id: '', label: '', desc: '', color: 'amber' });
                         setIsAddingCategory(true);
                       }}
                       className="w-full py-2.5 px-3 rounded-2xl border border-dashed border-stone-300 hover:border-stone-800 hover:bg-stone-50 text-stone-700 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
@@ -1110,7 +1740,7 @@ export function MoodboardView({
                                   {cat.label}
                                 </p>
                                 <p className="text-[10px] text-stone-400">
-                                  {count} foto terdaftar
+                                  {cat.subCategories?.length || 0} sub-kategori · {count} foto
                                 </p>
                               </div>
                             </div>
@@ -1124,6 +1754,7 @@ export function MoodboardView({
                                   setCategoryFormData({
                                     id: cat.id,
                                     label: cat.label,
+                                    desc: cat.desc || '',
                                     color: cat.color || 'amber'
                                   });
                                 }}
@@ -1182,6 +1813,92 @@ export function MoodboardView({
         </AnimatePresence>,
         document.body
       )}
+
     </div>
+  );
+}
+
+// Reusable Photo Card Component
+function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDelete }) {
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      className="nude-card rounded-2xl sm:rounded-3xl overflow-hidden border border-[#EADBCE] group bg-white shadow-xs hover:shadow-md transition-all flex flex-col"
+    >
+      {/* Image thumbnail with hover overlay */}
+      <div 
+        onClick={() => onViewDetail(item)}
+        className="relative overflow-hidden aspect-4/3 sm:aspect-square bg-stone-100 cursor-pointer"
+      >
+        <img
+          src={item.imageUrl}
+          alt={item.title}
+          loading="lazy"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+
+        {/* Hover overlay with detail icon */}
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+          <span className="w-9 h-9 rounded-full bg-white/90 text-stone-900 flex items-center justify-center shadow-xs">
+            <Eye size={16} />
+          </span>
+        </div>
+
+        {/* Top Badges */}
+        <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
+          <span className="px-2 py-0.5 rounded-lg text-[9px] font-extrabold bg-black/60 text-white backdrop-blur-xs">
+            {subCatLabel}
+          </span>
+        </div>
+      </div>
+
+      {/* Card Info */}
+      <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between">
+        <div>
+          <h4 
+            onClick={() => onViewDetail(item)}
+            className="text-xs sm:text-sm font-extrabold text-stone-900 group-hover:text-amber-800 transition line-clamp-1 cursor-pointer"
+            title={item.title}
+          >
+            {item.title}
+          </h4>
+
+          {item.notes && (
+            <p className="text-[11px] text-stone-500 mt-1 line-clamp-2 leading-relaxed">
+              {item.notes}
+            </p>
+          )}
+        </div>
+
+        {/* Card Footer Actions */}
+        <div className="mt-3 pt-2.5 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-400">
+          <span className="truncate max-w-[120px] font-medium">
+            {item.source || 'Inspirasi'}
+          </span>
+
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => onEdit(item)}
+              className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+              title="Edit Catatan"
+            >
+              <Edit3 size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(item.id, item.title)}
+              className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+              title="Hapus Foto"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 }
