@@ -1,5 +1,7 @@
 import { prisma } from './_lib/prisma.js';
 
+const DEPRECATED_TEMPLATE_IDS = ['mb-1', 'mb-2', 'mb-3', 'mb-4', 'mb-5', 'mb-6', 'mb-7', 'mb-8', 'mb-9'];
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -12,6 +14,9 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const items = await prisma.moodboardItem.findMany({
+        where: {
+          id: { notIn: DEPRECATED_TEMPLATE_IDS }
+        },
         orderBy: { createdAt: 'desc' }
       });
       return res.status(200).json({ success: true, data: items });
@@ -21,12 +26,25 @@ export default async function handler(req, res) {
       const data = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
       if (Array.isArray(data)) {
-        for (const item of data) {
-          if (!item.id || !item.imageUrl) continue;
+        // Filter out deprecated template items and invalid items
+        const cleanData = data.filter(it => it?.id && it?.imageUrl && !DEPRECATED_TEMPLATE_IDS.includes(it.id));
+        const incomingIds = cleanData.map(item => item.id).filter(Boolean);
+
+        // Delete any items that are NOT in the incoming array, PLUS all deprecated template items!
+        await prisma.moodboardItem.deleteMany({
+          where: {
+            OR: [
+              { id: { notIn: incomingIds } },
+              { id: { in: DEPRECATED_TEMPLATE_IDS } }
+            ]
+          }
+        });
+
+        for (const item of cleanData) {
           await prisma.moodboardItem.upsert({
             where: { id: item.id },
             update: {
-              title: item.title,
+              title: item.title || '',
               categoryId: item.categoryId,
               subCategoryId: item.subCategoryId,
               imageUrl: item.imageUrl,
@@ -37,7 +55,7 @@ export default async function handler(req, res) {
             },
             create: {
               id: item.id,
-              title: item.title,
+              title: item.title || '',
               categoryId: item.categoryId,
               subCategoryId: item.subCategoryId,
               imageUrl: item.imageUrl,
@@ -52,14 +70,14 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, message: 'Batch moodboard items updated' });
       }
 
-      if (!data?.id || !data?.imageUrl) {
-        return res.status(400).json({ success: false, error: 'Item id and imageUrl are required' });
+      if (!data?.id || !data?.imageUrl || DEPRECATED_TEMPLATE_IDS.includes(data.id)) {
+        return res.status(400).json({ success: false, error: 'Valid item id and imageUrl are required' });
       }
 
       const newItem = await prisma.moodboardItem.upsert({
         where: { id: data.id },
         update: {
-          title: data.title,
+          title: data.title || '',
           categoryId: data.categoryId,
           subCategoryId: data.subCategoryId,
           imageUrl: data.imageUrl,
@@ -70,7 +88,7 @@ export default async function handler(req, res) {
         },
         create: {
           id: data.id,
-          title: data.title,
+          title: data.title || '',
           categoryId: data.categoryId,
           subCategoryId: data.subCategoryId,
           imageUrl: data.imageUrl,
@@ -99,12 +117,24 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
-      const id = req.query?.id || (typeof req.body === 'string' ? JSON.parse(req.body)?.id : req.body?.id);
+      let id = req.query?.id;
+      if (!id && req.url) {
+        try {
+          const parsedUrl = new URL(req.url, 'http://localhost');
+          id = parsedUrl.searchParams.get('id');
+        } catch {}
+      }
+      if (!id) {
+        try {
+          const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body;
+          id = body?.id;
+        } catch {}
+      }
       if (!id) {
         return res.status(400).json({ success: false, error: 'Moodboard ID is required' });
       }
 
-      await prisma.moodboardItem.delete({
+      await prisma.moodboardItem.deleteMany({
         where: { id }
       });
       return res.status(200).json({ success: true, message: 'Moodboard item deleted' });

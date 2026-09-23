@@ -500,7 +500,11 @@ export function MoodboardView({
     const { id } = itemToDelete;
     const updated = safeItems.filter(i => i.id !== id);
     onChangeItems?.(updated);
-    fetch(`/api/moodboard?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+    fetch(`/api/moodboard?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    }).catch(() => {});
     if (detailItem?.id === id) setDetailItem(null);
     setItemToDelete(null);
   };

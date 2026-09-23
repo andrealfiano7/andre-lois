@@ -20,7 +20,8 @@ import { useWeddingData } from './hooks/useWeddingData';
 import { useCountdown } from './hooks/useCountdown';
 import { GOOGLE_SHEET_URL } from './data/initialTasks';
 import { INITIAL_PHOTO_LIST, INITIAL_RUNDOWN } from './data/otherSheets';
-import { INITIAL_MOODBOARD_ITEMS, DEFAULT_MOODBOARD_CATEGORIES } from './data/initialMoodboard';
+import { INITIAL_LOGISTICS_LIST } from './data/initialLogistics';
+import { DEFAULT_MOODBOARD_CATEGORIES } from './data/initialMoodboard';
 import { ViewSwitcher } from './components/ViewSwitcher';
 import { FilterBar } from './components/FilterBar';
 import { TaskTableView } from './components/TaskTableView';
@@ -99,16 +100,27 @@ const loadAndMigrateMoodboardCategories = () => {
   }
 };
 
+const DEPRECATED_TEMPLATE_IDS = new Set(['mb-1', 'mb-2', 'mb-3', 'mb-4', 'mb-5', 'mb-6', 'mb-7', 'mb-8', 'mb-9']);
+
 // Automatic migration for devices with existing moodboard items in localStorage
 const loadAndMigrateMoodboardItems = () => {
   try {
     const item = localStorage.getItem(MOODBOARD_STORAGE);
-    if (!item) return INITIAL_MOODBOARD_ITEMS;
+    if (!item) return [];
     const parsed = JSON.parse(item);
-    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_MOODBOARD_ITEMS;
+    if (!Array.isArray(parsed)) return [];
 
     let hasChange = false;
-    const migrated = parsed.map(it => {
+    // Strip out deprecated template photos so they never resurrect from stale browser cache
+    const cleanList = parsed.filter(it => {
+      if (it && DEPRECATED_TEMPLATE_IDS.has(it.id)) {
+        hasChange = true;
+        return false;
+      }
+      return Boolean(it && it.id && it.imageUrl);
+    });
+
+    const migrated = cleanList.map(it => {
       let subId = it.subCategoryId;
       const catMap = CATEGORY_SUB_FALLBACK[it.categoryId];
       if (catMap && catMap[subId]) {
@@ -126,12 +138,12 @@ const loadAndMigrateMoodboardItems = () => {
       };
     });
 
-    if (hasChange) {
+    if (hasChange || cleanList.length !== parsed.length) {
       localStorage.setItem(MOODBOARD_STORAGE, JSON.stringify(migrated));
     }
     return migrated;
   } catch {
-    return INITIAL_MOODBOARD_ITEMS;
+    return [];
   }
 };
 
@@ -236,24 +248,13 @@ export default function App() {
         .then(data => {
           if (!isMounted || !data.success || !Array.isArray(data.data)) return;
 
-          if (data.data.length === 0) {
-            // DB is empty, push local items to Neon DB
-            const local = loadAndMigrateMoodboardItems();
-            if (local && local.length > 0) {
-              fetch('/api/moodboard', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(local)
-              }).catch(() => {});
-            }
-          } else {
-            // Neon DB is source of truth
-            setMoodboardItems(prev => {
-              const prevStr = JSON.stringify(prev);
-              const nextStr = JSON.stringify(data.data);
-              return prevStr !== nextStr ? data.data : prev;
-            });
-          }
+          // Neon DB is source of truth, filter out any deprecated template items
+          const cleanData = data.data.filter(it => !DEPRECATED_TEMPLATE_IDS.has(it.id));
+          setMoodboardItems(prev => {
+            const prevStr = JSON.stringify(prev);
+            const nextStr = JSON.stringify(cleanData);
+            return prevStr !== nextStr ? cleanData : prev;
+          });
         })
         .catch(() => {});
     };
