@@ -200,7 +200,10 @@ export default function App() {
     let isMounted = true;
 
     const syncRundown = () => {
-      fetch('/api/rundown')
+      fetch(`/api/rundown?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' }
+      })
         .then(res => res.json())
         .then(data => {
           if (isMounted && data.success && Array.isArray(data.data) && data.data.length > 0) {
@@ -215,7 +218,10 @@ export default function App() {
     };
 
     const syncPhotos = () => {
-      fetch('/api/photos')
+      fetch(`/api/photos?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' }
+      })
         .then(res => res.json())
         .then(data => {
           if (isMounted && data.success && Array.isArray(data.data) && data.data.length > 0) {
@@ -230,7 +236,10 @@ export default function App() {
     };
 
     const syncMoodboardCategories = () => {
-      fetch('/api/moodboard-categories')
+      fetch(`/api/moodboard-categories?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' }
+      })
         .then(res => res.json())
         .then(data => {
           if (!isMounted || !data.success || !Array.isArray(data.data) || data.data.length === 0) return;
@@ -244,7 +253,10 @@ export default function App() {
     };
 
     const syncMoodboard = () => {
-      fetch('/api/moodboard')
+      fetch(`/api/moodboard?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' }
+      })
         .then(res => res.json())
         .then(data => {
           if (!isMounted || !data.success || !Array.isArray(data.data)) return;
@@ -415,6 +427,51 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newList)
     }).catch(() => {});
+  };
+
+  const handleMoodboardItemDelete = async (id) => {
+    // 1. Optimistic update in UI and local storage
+    setMoodboardItems(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      try {
+        localStorage.setItem(MOODBOARD_STORAGE, JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+
+    // 2. Perform direct DELETE request to Neon Postgres API
+    try {
+      await fetch(`/api/moodboard?id=${encodeURIComponent(id)}&t=${Date.now()}`, {
+        method: 'DELETE',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store',
+          'Pragma': 'no-cache'
+        },
+        body: JSON.stringify({ id })
+      });
+    } catch (err) {
+      console.error('Gagal menghapus moodboard item:', err);
+    }
+
+    // 3. Immediately re-fetch fresh data from server with cache busting
+    try {
+      const res = await fetch(`/api/moodboard?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' }
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        const cleanData = data.data.filter(it => !DEPRECATED_TEMPLATE_IDS.has(it.id));
+        setMoodboardItems(cleanData);
+        try {
+          localStorage.setItem(MOODBOARD_STORAGE, JSON.stringify(cleanData));
+        } catch {}
+      }
+    } catch {}
   };
 
   const handleMoodboardCategoriesChange = (newList) => {
@@ -992,6 +1049,7 @@ export default function App() {
             onChangeItems={handleMoodboardItemsChange}
             onChangeCategories={handleMoodboardCategoriesChange}
             onResetToDefault={handleResetMoodboardCategories}
+            onDeleteItem={handleMoodboardItemDelete}
           />
         )}
           </div>

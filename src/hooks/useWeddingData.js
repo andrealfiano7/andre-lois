@@ -62,7 +62,10 @@ export function useWeddingData() {
     let isMounted = true;
     async function loadFromDb() {
       try {
-        const res = await fetch('/api/tasks');
+        const res = await fetch(`/api/tasks?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' }
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
@@ -72,8 +75,11 @@ export function useWeddingData() {
             setLastSync('Database Neon PostgreSQL');
             localStorage.setItem(LAST_SYNC_KEY, 'Database Neon PostgreSQL');
           } else if (data.data.length === 0) {
-            await fetch('/api/seed');
-            const retryRes = await fetch('/api/tasks');
+            await fetch(`/api/seed?t=${Date.now()}`, { cache: 'no-store' });
+            const retryRes = await fetch(`/api/tasks?t=${Date.now()}`, {
+              cache: 'no-store',
+              headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' }
+            });
             const retryData = await retryRes.json();
             if (retryData.success && retryData.data.length > 0 && isMounted) {
               setTasks(retryData.data);

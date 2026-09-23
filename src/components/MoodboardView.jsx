@@ -73,7 +73,8 @@ export function MoodboardView({
   categories = [],
   onChangeItems,
   onChangeCategories,
-  onResetToDefault
+  onResetToDefault,
+  onDeleteItem
 }) {
   // Navigation level: null = Overview Katalog Kategori (Level 1), string catId = Halaman Khusus Kategori (Level 2)
   const [activeCategoryView, setActiveCategoryView] = useState(null);
@@ -513,15 +514,21 @@ export function MoodboardView({
   const confirmDeleteItem = () => {
     if (!itemToDelete) return;
     const { id } = itemToDelete;
-    const updated = safeItems.filter(i => i.id !== id);
-    onChangeItems?.(updated);
-    fetch(`/api/moodboard?id=${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
-    }).catch(() => {});
     if (detailItem?.id === id) setDetailItem(null);
     setItemToDelete(null);
+
+    if (onDeleteItem) {
+      onDeleteItem(id);
+    } else {
+      const updated = safeItems.filter(i => i.id !== id);
+      onChangeItems?.(updated);
+      fetch(`/api/moodboard?id=${encodeURIComponent(id)}&t=${Date.now()}`, {
+        method: 'DELETE',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      }).catch(() => {});
+    }
   };
 
   // Download Image from Detail Popup
