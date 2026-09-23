@@ -133,6 +133,11 @@ export function MoodboardView({
   const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
+  // Multi-select delete state
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [showMultiDeleteConfirm, setShowMultiDeleteConfirm] = useState(false);
+
   // Category-specific fallback mappings for legacy item subcategory ids
   const CATEGORY_SUB_FALLBACK = useMemo(() => ({
     dekorasi: { 'holy-matrimony': 'altar', 'reception': 'pelaminan', 'before-wedding': 'foyer', 'after-party': 'photobooth' },
@@ -170,9 +175,15 @@ export function MoodboardView({
       if (catMap && catMap[subId]) {
         subId = catMap[subId];
       }
-      if (!subId) {
-        const cat = safeCategories.find(c => c.id === item.categoryId);
-        subId = cat?.subCategories?.[0]?.id || 'altar';
+
+      // Find the category and its known subcategory IDs
+      const cat = safeCategories.find(c => c.id === item.categoryId);
+      const knownSubIds = cat?.subCategories?.map(s => s.id) || [];
+
+      // If subId is empty OR doesn't exist in the category's known subcategories,
+      // fall back to the first valid subcategory so the photo is never "orphaned" (invisible)
+      if (!subId || (knownSubIds.length > 0 && !knownSubIds.includes(subId))) {
+        subId = knownSubIds[0] || 'altar';
       }
 
       const videoInfo = item.videoUrl ? parseVideoUrl(item.videoUrl) : parseVideoUrl(item.imageUrl);
@@ -534,6 +545,57 @@ export function MoodboardView({
     setTimeout(() => setUploadToast(null), 4000);
   };
 
+  // ── Multi-Select Delete Handlers ──────────────────────────────────────────
+  const toggleSelectMode = () => {
+    setIsSelectMode(prev => {
+      if (prev) setSelectedIds(new Set()); // clear selections when exiting
+      return !prev;
+    });
+  };
+
+  const toggleSelectItem = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllVisible = (visibleItems) => {
+    setSelectedIds(new Set(visibleItems.map(i => i.id)));
+  };
+
+  const confirmMultiDelete = () => {
+    if (selectedIds.size === 0) return;
+    const ids = [...selectedIds];
+    // Optimistic update
+    ids.forEach(id => {
+      if (onDeleteItem) {
+        onDeleteItem(id);
+      } else {
+        fetch(`/api/moodboard?id=${encodeURIComponent(id)}&t=${Date.now()}`, {
+          method: 'DELETE',
+          cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        }).catch(() => {});
+      }
+    });
+    if (!onDeleteItem) {
+      // If no centralized delete handler, update items locally
+      const updated = safeItems.filter(i => !selectedIds.has(i.id));
+      onChangeItems?.(updated);
+    }
+    const count = ids.length;
+    setSelectedIds(new Set());
+    setIsSelectMode(false);
+    setShowMultiDeleteConfirm(false);
+    setUploadToast(`✓ ${count} foto berhasil dihapus`);
+    setTimeout(() => setUploadToast(null), 4000);
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Download Image from Detail Popup
   const handleDownloadImage = (item) => {
     if (!item?.imageUrl) return;
@@ -818,26 +880,46 @@ export function MoodboardView({
                   )}
                 </div>
 
+                {/* Select Mode Toggle */}
                 <button
                   type="button"
-                  onClick={() => setIsSubCategoryModalOpen(true)}
-                  className="shrink-0 whitespace-nowrap px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  title="Kelola Sub-Kategori"
+                  onClick={toggleSelectMode}
+                  className={`shrink-0 whitespace-nowrap px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                    isSelectMode
+                      ? 'bg-rose-600 text-white border-rose-600 hover:bg-rose-700'
+                      : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
+                  }`}
+                  title={isSelectMode ? 'Batalkan Pilihan' : 'Pilih Foto untuk Dihapus'}
                 >
-                  <Layers size={13} className="text-stone-500" />
-                  <span className="hidden lg:inline">Kelola Sub-Kategori</span>
-                  <span className="lg:hidden text-[11px]">Sub-Kat</span>
+                  {isSelectMode ? <X size={13} /> : <Check size={13} className="text-stone-500" />}
+                  <span className="hidden sm:inline">{isSelectMode ? 'Batal Pilih' : 'Pilih Foto'}</span>
+                  <span className="sm:hidden text-[11px]">{isSelectMode ? 'Batal' : 'Pilih'}</span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleOpenAdd(currentCategoryObj.id, activeSubCategory !== 'all' ? activeSubCategory : null)}
-                  className="shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold bg-stone-900 hover:bg-stone-800 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-                >
-                  <Upload size={13} />
-                  <span className="hidden sm:inline">Upload Foto</span>
-                  <span className="sm:hidden text-[11px]">Upload</span>
-                </button>
+                {!isSelectMode && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsSubCategoryModalOpen(true)}
+                      className="shrink-0 whitespace-nowrap px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      title="Kelola Sub-Kategori"
+                    >
+                      <Layers size={13} className="text-stone-500" />
+                      <span className="hidden lg:inline">Kelola Sub-Kategori</span>
+                      <span className="lg:hidden text-[11px]">Sub-Kat</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAdd(currentCategoryObj.id, activeSubCategory !== 'all' ? activeSubCategory : null)}
+                      className="shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold bg-stone-900 hover:bg-stone-800 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <Upload size={13} />
+                      <span className="hidden sm:inline">Upload Foto</span>
+                      <span className="sm:hidden text-[11px]">Upload</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -945,9 +1027,12 @@ export function MoodboardView({
                             item={item}
                             categoryObj={currentCategoryObj}
                             subCatLabel={sub.label}
-                            onViewDetail={setDetailItem}
-                            onEdit={handleOpenEdit}
-                            onDelete={handleDeleteItem}
+                            onViewDetail={isSelectMode ? undefined : setDetailItem}
+                            onEdit={isSelectMode ? undefined : handleOpenEdit}
+                            onDelete={isSelectMode ? undefined : handleDeleteItem}
+                            isSelectMode={isSelectMode}
+                            isSelected={selectedIds.has(item.id)}
+                            onToggleSelect={toggleSelectItem}
                           />
                         ))}
                       </div>
@@ -1000,9 +1085,12 @@ export function MoodboardView({
                       item={item}
                       categoryObj={getCategory(item.categoryId)}
                       subCatLabel={getSubCategoryLabel(item.categoryId, item.subCategoryId)}
-                      onViewDetail={setDetailItem}
-                      onEdit={handleOpenEdit}
-                      onDelete={handleDeleteItem}
+                      onViewDetail={isSelectMode ? undefined : setDetailItem}
+                      onEdit={isSelectMode ? undefined : handleOpenEdit}
+                      onDelete={isSelectMode ? undefined : handleDeleteItem}
+                      isSelectMode={isSelectMode}
+                      isSelected={selectedIds.has(item.id)}
+                      onToggleSelect={toggleSelectItem}
                     />
                   ))}
                 </div>
@@ -2355,16 +2443,141 @@ export function MoodboardView({
         document.body
       )}
 
+      {/* ========================================================================= */}
+      {/* FLOATING BOTTOM SELECT BAR (appears when isSelectMode is ON)              */}
+      {/* ========================================================================= */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isSelectMode && (
+            <motion.div
+              initial={{ opacity: 0, y: 80 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 80 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[9500] w-[calc(100%-2rem)] max-w-md"
+            >
+              <div className="bg-stone-900 text-white rounded-2xl shadow-2xl px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                    <Check size={15} className="text-white" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold leading-snug">
+                      {selectedIds.size === 0 ? 'Pilih foto' : `${selectedIds.size} foto dipilih`}
+                    </p>
+                    <p className="text-[10px] text-stone-400">Ketuk foto untuk memilih / batal pilih</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {selectedIds.size > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Select all in current view
+                          const visibleIds = activeCategoryView
+                            ? safeItems.filter(i => i.categoryId === activeCategoryView)
+                            : safeItems;
+                          selectAllVisible(visibleIds);
+                        }}
+                        className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+                      >
+                        Semua
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowMultiDeleteConfirm(true)}
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        <Trash2 size={13} />
+                        <span>Hapus ({selectedIds.size})</span>
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={toggleSelectMode}
+                    className="p-1.5 rounded-xl text-stone-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                    title="Batalkan pilih"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 6: CONFIRM MULTI-DELETE DIALOG                                      */}
+      {/* ========================================================================= */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {showMultiDeleteConfirm && (
+            <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs overscroll-contain">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                transition={{ duration: 0.15 }}
+                className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-stone-200 p-5 space-y-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200">
+                    <Trash2 size={18} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-stone-900">Hapus {selectedIds.size} Foto?</h4>
+                    <p className="text-xs text-stone-500 mt-0.5">Foto yang dipilih akan dihapus permanen</p>
+                  </div>
+                </div>
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  {selectedIds.size} foto/video yang dipilih akan dihapus secara permanen dari moodboard dan cloud database. Tindakan ini tidak bisa dibatalkan.
+                </p>
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowMultiDeleteConfirm(false)}
+                    className="px-3.5 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmMultiDelete}
+                    className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Trash2 size={13} />
+                    <span>Ya, Hapus Semua</span>
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
     </div>
   );
 }
 
 // Reusable Photo Card Component
-function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDelete }) {
+function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDelete, isSelectMode, isSelected, onToggleSelect }) {
   const hasTitle = Boolean(item.title && item.title.trim());
   const hasNotes = Boolean(item.notes && item.notes.trim());
   const videoInfo = item.videoUrl ? parseVideoUrl(item.videoUrl) : parseVideoUrl(item.imageUrl);
   const isVideo = item.mediaType === 'video' || Boolean(videoInfo);
+
+  const handleCardClick = () => {
+    if (isSelectMode) {
+      onToggleSelect?.(item.id);
+    } else {
+      onViewDetail?.(item);
+    }
+  };
 
   return (
     <motion.div
@@ -2372,22 +2585,39 @@ function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDel
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96 }}
-      className="nude-card rounded-2xl sm:rounded-3xl overflow-hidden border border-[#EADBCE] group bg-white shadow-xs hover:shadow-md transition-all flex flex-col"
+      className={`nude-card rounded-2xl sm:rounded-3xl overflow-hidden border group bg-white shadow-xs hover:shadow-md transition-all flex flex-col ${
+        isSelected
+          ? 'border-rose-500 ring-2 ring-rose-400 ring-offset-1'
+          : 'border-[#EADBCE]'
+      }`}
     >
       {/* Image thumbnail with hover overlay */}
-      <div 
-        onClick={() => onViewDetail(item)}
+      <div
+        onClick={handleCardClick}
         className="relative overflow-hidden aspect-4/3 sm:aspect-square bg-stone-100 cursor-pointer shrink-0"
       >
         <img
           src={item.imageUrl}
           alt={item.title || subCatLabel || 'Inspirasi Moodboard'}
           loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className={`w-full h-full object-cover transition-transform duration-300 ${isSelectMode ? '' : 'group-hover:scale-105'}`}
         />
 
-        {/* Video Center Play Indicator */}
-        {isVideo && (
+        {/* Select Mode: tinted overlay + checkmark */}
+        {isSelectMode && (
+          <div className={`absolute inset-0 transition-all ${isSelected ? 'bg-rose-600/30' : 'bg-black/0 hover:bg-black/15'}`}>
+            <div className={`absolute top-2.5 right-2.5 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+              isSelected
+                ? 'bg-rose-600 border-rose-600 shadow-md'
+                : 'bg-white/80 border-stone-300'
+            }`}>
+              {isSelected && <Check size={13} className="text-white" strokeWidth={3} />}
+            </div>
+          </div>
+        )}
+
+        {/* Video Center Play Indicator (only in normal mode) */}
+        {isVideo && !isSelectMode && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <span className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-black/60 backdrop-blur-xs text-white flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:bg-amber-600 transition-all duration-300">
               <Play size={18} className="fill-white ml-0.5" />
@@ -2395,12 +2625,14 @@ function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDel
           </div>
         )}
 
-        {/* Hover overlay with detail icon */}
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-          <span className="w-9 h-9 rounded-full bg-white/95 text-stone-900 flex items-center justify-center shadow-md">
-            {isVideo ? <Play size={16} className="fill-stone-900 ml-0.5" /> : <Eye size={16} />}
-          </span>
-        </div>
+        {/* Hover overlay with detail icon (only in normal mode) */}
+        {!isSelectMode && (
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+            <span className="w-9 h-9 rounded-full bg-white/95 text-stone-900 flex items-center justify-center shadow-md">
+              {isVideo ? <Play size={16} className="fill-stone-900 ml-0.5" /> : <Eye size={16} />}
+            </span>
+          </div>
+        )}
 
         {/* Top Badges */}
         <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
@@ -2411,7 +2643,7 @@ function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDel
 
         {/* Video Badge */}
         {isVideo && (
-          <div className="absolute top-2.5 right-2.5">
+          <div className={`absolute ${isSelectMode ? 'top-2.5 left-2.5 mt-5' : 'top-2.5 right-2.5'}`}>
             <span className="px-2 py-0.5 rounded-lg text-[9px] font-extrabold bg-rose-600 text-white flex items-center gap-1 shadow-xs">
               <Play size={8} className="fill-white" />
               <span>Video</span>
@@ -2424,8 +2656,8 @@ function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDel
       {(hasTitle || hasNotes) && (
         <div className="px-3 pt-2.5 pb-1 sm:px-3.5 sm:pt-3 space-y-0.5">
           {hasTitle && (
-            <h4 
-              onClick={() => onViewDetail(item)}
+            <h4
+              onClick={handleCardClick}
               className="text-xs sm:text-sm font-extrabold text-stone-900 group-hover:text-amber-800 transition line-clamp-1 cursor-pointer leading-snug"
               title={item.title}
             >
@@ -2441,34 +2673,44 @@ function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDel
       )}
 
       {/* Card Footer Actions */}
-      <div className={`flex items-center justify-between text-[11px] text-stone-400 ${
-        (hasTitle || hasNotes) 
-          ? 'mt-2 pt-2 px-3 pb-2.5 sm:px-3.5 sm:pb-3 border-t border-stone-100' 
-          : 'px-3 py-2 sm:px-3.5 sm:py-2.5'
-      }`}>
-        <span className="truncate max-w-[120px] font-medium text-stone-500">
-          {item.source || 'Pinterest'}
-        </span>
+      {!isSelectMode ? (
+        <div className={`flex items-center justify-between text-[11px] text-stone-400 ${
+          (hasTitle || hasNotes)
+            ? 'mt-2 pt-2 px-3 pb-2.5 sm:px-3.5 sm:pb-3 border-t border-stone-100'
+            : 'px-3 py-2 sm:px-3.5 sm:py-2.5'
+        }`}>
+          <span className="truncate max-w-[120px] font-medium text-stone-500">
+            {item.source || 'Pinterest'}
+          </span>
 
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            type="button"
-            onClick={() => onEdit(item)}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
-            title="Edit Info"
-          >
-            <Edit3 size={13} />
-          </button>
-          <button
-            type="button"
-            onClick={() => onDelete(item.id, item.title)}
-            className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-            title="Hapus Foto"
-          >
-            <Trash2 size={13} />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => onEdit(item)}
+              className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+              title="Edit Info"
+            >
+              <Edit3 size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(item.id, item.title)}
+              className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+              title="Hapus Foto"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* In select mode: show minimal tap-to-select hint in footer */
+        <div className={`px-3 py-2 sm:px-3.5 ${(hasTitle || hasNotes) ? 'border-t border-stone-100' : ''}`}>
+          <p className="text-[10px] text-stone-400 text-center">
+            {isSelected ? '✓ Dipilih' : 'Ketuk untuk memilih'}
+          </p>
+        </div>
+      )}
     </motion.div>
   );
 }
+
