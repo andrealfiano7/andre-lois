@@ -11,7 +11,8 @@ import {
   Plus, 
   ArrowRight,
   Luggage,
-  Palette
+  Palette,
+  Edit3
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import logoImg from './assets/logo.png';
@@ -446,115 +447,172 @@ export default function App() {
   ], [stats.overallProgress, tasks.length, photoList.length, rundownList.length, logisticsList, moodboardItems.length]);
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#2D251E] flex flex-col">
-      {/* Top Main Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-[#EADBCE]/80 shadow-xs transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-2 sm:gap-3">
-            
-            {/* Left: Brand Identity with Cursive AL Monogram Logo */}
-            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-              <motion.div 
-                whileHover={{ scale: 1.06, rotate: 2 }} 
-                whileTap={{ scale: 0.94 }}
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl overflow-hidden flex items-center justify-center shadow-xs flex-shrink-0 cursor-pointer"
-              >
-                <img src={logoImg} alt="Andre & Lois Monogram" className="w-full h-full object-contain block rounded-2xl" />
-              </motion.div>
-              <div className="min-w-0">
-                <h1 className="text-base sm:text-lg font-extrabold text-stone-900 tracking-tight truncate">
-                  Andre &amp; Lois
-                </h1>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <p className="text-[10px] sm:text-[11px] text-stone-500 truncate font-medium">
-                    Wedding Dashboard
-                  </p>
-                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-full leading-none" title="Tersambung ke database Neon PostgreSQL">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span>Neon DB</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Quick Action Controls */}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              {/* Countdown Pill */}
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={() => setIsDateModalOpen(true)}
-                className="px-2.5 sm:px-3.5 py-1.5 rounded-2xl border border-stone-200/90 bg-white hover:bg-stone-50 text-stone-800 text-xs font-bold flex items-center gap-1 sm:gap-1.5 transition shadow-xs cursor-pointer"
-                title="Ubah target tanggal Hari-H"
-              >
-                <CalendarDays size={13} className="text-amber-600 flex-shrink-0" />
-                <span className="tabular-nums whitespace-nowrap">
-                  {countdown.isPast ? 'Hari-H!' : `H-${countdown.days}`}
-                  <span className="hidden sm:inline"> Hari</span>
-                </span>
-              </motion.button>
-
-              {/* Sync from Google Sheet */}
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={syncFromGoogleSheet}
-                disabled={isSyncing}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold transition shadow-xs disabled:opacity-50 cursor-pointer"
-                title="Sinkronkan data dari Google Spreadsheet"
-              >
-                <RefreshCw size={13} className={isSyncing ? 'animate-spin text-amber-600' : 'text-stone-500'} />
-                <span>{isSyncing ? 'Sinkron...' : 'Sinkronkan'}</span>
-              </motion.button>
-
-              {/* Export Button */}
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={exportToCSV}
-                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-semibold transition shadow-xs cursor-pointer"
-                title="Unduh data checklist sebagai CSV"
-              >
-                <Download size={13} className="text-stone-500" />
-                <span>CSV</span>
-              </motion.button>
-
-              {/* Quick Add Task Button (Desktop) */}
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={openAddModal}
-                className="hidden sm:inline-flex px-3.5 sm:px-4 py-1.5 rounded-2xl bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 hover:from-amber-700 hover:to-rose-700 text-white text-xs font-bold items-center gap-1.5 transition shadow-xs cursor-pointer"
-              >
-                <Plus size={14} />
-                <span className="hidden sm:inline">Tambah Tugas</span>
-              </motion.button>
+    <div className="min-h-screen bg-[#FAF7F2] text-[#2D251E] flex flex-col lg:flex-row">
+      {/* Sticky Sidebar on Desktop / PC */}
+      <aside className="hidden lg:flex flex-col w-64 xl:w-72 h-screen sticky top-0 bg-white/95 backdrop-blur-xl border-r border-[#EADBCE]/90 z-30 shrink-0 select-none">
+        {/* Sidebar Brand Header */}
+        <div className="p-4 xl:p-5 border-b border-stone-100 flex items-center gap-3">
+          <motion.div 
+            whileHover={{ scale: 1.06, rotate: 2 }} 
+            whileTap={{ scale: 0.94 }}
+            className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shadow-xs shrink-0 cursor-pointer border border-amber-200/60"
+          >
+            <img src={logoImg} alt="Andre & Lois Monogram" className="w-full h-full object-contain block rounded-2xl" />
+          </motion.div>
+          <div className="min-w-0">
+            <h1 className="text-base font-extrabold text-stone-900 tracking-tight truncate">
+              Andre &amp; Lois
+            </h1>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-[11px] text-stone-500 truncate font-medium">
+                Wedding Operations
+              </p>
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-full leading-none" title="Tersambung ke database Neon PostgreSQL">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Neon DB</span>
+              </span>
             </div>
           </div>
-
-          {/* Desktop Navigation Tabs with Sliding Spring Pill Indicator */}
-          <nav className="hidden lg:flex items-center gap-1.5 border-t border-stone-100 pt-1.5 pb-1.5">
-            {MODULES.map(mod => (
-              <DesktopNavTab
-                key={mod.id}
-                active={activeModule === mod.id}
-                onClick={() => setActiveModule(mod.id)}
-                icon={mod.icon}
-                label={mod.label}
-                badge={mod.badge}
-                iconColor={mod.color}
-              />
-            ))}
-          </nav>
         </div>
-      </header>
 
-      {/* Main Content Area: Instant 0ms Tab Switching with Hardware Accelerated Fade */}
-      <main className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-6 flex-1 space-y-3 sm:space-y-6 pb-28 sm:pb-24 lg:pb-8">
+        {/* Countdown Card Widget */}
+        <div className="px-3 xl:px-4 pt-3.5 pb-1">
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setIsDateModalOpen(true)}
+            className="p-3 rounded-2xl bg-gradient-to-br from-amber-500/10 via-rose-500/5 to-amber-500/15 border border-amber-300/60 flex items-center justify-between cursor-pointer group shadow-2xs"
+            title="Klik untuk ubah target tanggal Hari-H"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-600 to-rose-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                <CalendarDays size={15} />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-900/70 block">
+                  Hitung Mundur
+                </span>
+                <span className="text-xs font-black text-stone-900 tabular-nums truncate block">
+                  {countdown.isPast ? 'Hari-H Pernikahan!' : `H-${countdown.days} Hari`}
+                </span>
+              </div>
+            </div>
+            <Edit3 size={13} className="text-amber-700 opacity-60 group-hover:opacity-100 transition shrink-0" />
+          </motion.div>
+        </div>
+
+        {/* Vertical Navigation Menu List */}
+        <nav className="flex-1 overflow-y-auto px-3 xl:px-4 py-2.5 space-y-1 custom-scrollbar">
+          <div className="px-2 pb-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400">
+              Menu Operasional
+            </span>
+          </div>
+
+          {MODULES.map(mod => (
+            <SidebarNavItem
+              key={mod.id}
+              active={activeModule === mod.id}
+              onClick={() => setActiveModule(mod.id)}
+              icon={mod.icon}
+              label={mod.label}
+              badge={mod.badge}
+              iconColor={mod.color}
+            />
+          ))}
+        </nav>
+
+        {/* Sidebar Footer & Actions */}
+        <div className="p-3 xl:p-4 border-t border-stone-100 bg-stone-50/60 space-y-2">
+          {/* Quick Add Task Button */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            type="button"
+            onClick={openAddModal}
+            className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 hover:from-amber-700 hover:to-rose-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
+          >
+            <Plus size={15} />
+            <span>Tambah Tugas Baru</span>
+          </motion.button>
+
+          {/* Utility Row */}
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={syncFromGoogleSheet}
+              disabled={isSyncing}
+              className="py-1.5 px-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-100 text-stone-700 text-[11px] font-bold flex items-center justify-center gap-1.5 transition shadow-2xs disabled:opacity-50 cursor-pointer"
+              title="Sinkronkan data dari Google Spreadsheet"
+            >
+              <RefreshCw size={12} className={isSyncing ? 'animate-spin text-amber-600' : 'text-stone-500'} />
+              <span>{isSyncing ? 'Sinkron...' : 'Sinkron'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={exportToCSV}
+              className="py-1.5 px-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-100 text-stone-700 text-[11px] font-bold flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer"
+              title="Unduh data checklist sebagai CSV"
+            >
+              <Download size={12} className="text-stone-500" />
+              <span>CSV</span>
+            </button>
+          </div>
+
+          <div className="pt-0.5 text-center text-[10px] text-stone-400 font-medium">
+            © 2026 Andre &amp; Lois
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Wrapper */}
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen">
+        {/* Mobile Top Navigation Bar (Mobile Only) */}
+        <header className="lg:hidden sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-[#EADBCE]/80 shadow-xs transition-all">
+          <div className="max-w-7xl mx-auto px-3.5 sm:px-6">
+            <div className="flex items-center justify-between h-14 gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center shadow-xs shrink-0 cursor-pointer">
+                  <img src={logoImg} alt="Andre & Lois Monogram" className="w-full h-full object-contain block rounded-xl" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-sm font-extrabold text-stone-900 tracking-tight truncate">
+                    Andre &amp; Lois
+                  </h1>
+                  <div className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[9px] font-bold text-emerald-700">Neon DB</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsDateModalOpen(true)}
+                  className="px-2.5 py-1 rounded-xl border border-stone-200 bg-white text-stone-800 text-xs font-bold flex items-center gap-1 shadow-2xs"
+                  title="Ubah target tanggal Hari-H"
+                >
+                  <CalendarDays size={12} className="text-amber-600" />
+                  <span>{countdown.isPast ? 'Hari-H!' : `H-${countdown.days}`}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={openAddModal}
+                  className="p-1.5 rounded-xl bg-stone-900 text-white text-xs font-bold flex items-center justify-center shadow-xs"
+                  title="Tambah Tugas"
+                >
+                  <Plus size={15} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content Area: Instant 0ms Tab Switching with Hardware Accelerated Fade */}
+        <main className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-6 flex-1 space-y-3 sm:space-y-6 pb-28 sm:pb-24 lg:pb-8">
         <ErrorBoundary onReset={() => setActiveModule('dashboard')} onGoHome={() => setActiveModule('dashboard')}>
           <div key={activeModule} className="w-full animate-fade-in">
         {/* Module 1: Dashboard Overview */}
@@ -782,12 +840,13 @@ export default function App() {
         </ErrorBoundary>
       </main>
 
-      {/* Footer Branding (Copyright Only) */}
-      <footer className="mt-auto border-t border-[#EADBCE] bg-white pt-5 pb-28 lg:pb-5">
+      {/* Footer Branding (Copyright Only for Mobile) */}
+      <footer className="mt-auto border-t border-[#EADBCE] bg-white pt-5 pb-28 lg:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-stone-500">
           <p className="font-medium">© 2026 Andre &amp; Lois. All rights reserved.</p>
         </div>
       </footer>
+      </div>
 
       {/* Modern Floating Island Navigation Dock for Mobile (Ultra-modern iOS Style) */}
       <div className="lg:hidden fixed bottom-3.5 inset-x-3 z-40 max-w-md mx-auto pointer-events-none">
@@ -827,38 +886,42 @@ export default function App() {
   );
 }
 
-function DesktopNavTab({ active, onClick, icon: Icon, label, badge, iconColor }) {
+function SidebarNavItem({ active, onClick, icon: Icon, label, badge, iconColor }) {
   return (
-    <motion.button
+    <button
       type="button"
       onClick={onClick}
-      whileHover={{ y: -1 }}
-      whileTap={{ scale: 0.97 }}
-      className={`relative px-4 py-2 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+      className={`w-full relative px-3 py-2.5 rounded-2xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer group select-none text-left ${
         active 
-          ? 'text-white shadow-xs' 
-          : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
+          ? 'text-stone-900 bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-amber-500/15 border border-amber-400/40 shadow-2xs' 
+          : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/80 border border-transparent'
       }`}
     >
       {active && (
         <motion.div
-          layoutId="desktopActiveTabPill"
-          className="absolute inset-0 bg-gradient-to-r from-amber-600 to-rose-600 rounded-2xl shadow-xs"
+          layoutId="sidebarActiveIndicator"
+          className="absolute left-0 top-2 bottom-2 w-1.5 bg-gradient-to-b from-amber-600 to-rose-600 rounded-r-full shadow-xs"
           transition={{ type: 'spring', stiffness: 450, damping: 32 }}
         />
       )}
-      <span className="relative z-10 flex items-center gap-2">
-        <Icon size={15} className={active ? 'text-white' : iconColor} />
-        <span>{label}</span>
-        {badge !== undefined && (
-          <span className={`px-2 py-0.2 rounded-full text-[10px] font-extrabold tabular-nums transition-colors ${
-            active ? 'bg-white/25 text-white' : 'bg-stone-200/80 text-stone-700'
-          }`}>
-            {badge}
-          </span>
-        )}
-      </span>
-    </motion.button>
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
+          active ? 'bg-gradient-to-tr from-amber-600 to-rose-600 text-white shadow-xs' : 'bg-stone-100 text-stone-500 group-hover:bg-stone-200/80 group-hover:text-stone-800'
+        }`}>
+          <Icon size={16} className={active ? 'text-white' : iconColor} />
+        </div>
+        <span className={`truncate text-xs ${active ? 'font-extrabold text-stone-900' : 'font-semibold text-stone-600'}`}>
+          {label}
+        </span>
+      </div>
+      {badge !== undefined && (
+        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold tabular-nums shrink-0 transition-colors ${
+          active ? 'bg-amber-600 text-white shadow-2xs' : 'bg-stone-100 text-stone-600 group-hover:bg-stone-200'
+        }`}>
+          {badge}
+        </span>
+      )}
+    </button>
   );
 }
 
