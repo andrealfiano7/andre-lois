@@ -22,6 +22,7 @@ import { GOOGLE_SHEET_URL } from './data/initialTasks';
 import { INITIAL_PHOTO_LIST, INITIAL_RUNDOWN } from './data/otherSheets';
 import { INITIAL_LOGISTICS_LIST } from './data/initialLogistics';
 import { DEFAULT_MOODBOARD_CATEGORIES } from './data/initialMoodboard';
+import { StatsOverview } from './components/StatsOverview';
 import { ViewSwitcher } from './components/ViewSwitcher';
 import { FilterBar } from './components/FilterBar';
 import { TaskTableView } from './components/TaskTableView';

@@ -38,6 +38,12 @@ export class ErrorBoundary extends React.Component {
                 Tampilan mengalami kendala sementara. Anda dapat memuat ulang komponen ini tanpa perlu me-refresh seluruh halaman.
               </p>
             </div>
+            {this.state.error?.message && (
+              <div className="text-left bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-[11px] text-stone-600 font-mono break-all">
+                <span className="font-bold text-rose-600">Info: </span>
+                {this.state.error.message}
+              </div>
+            )}
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
               <button
                 type="button"
