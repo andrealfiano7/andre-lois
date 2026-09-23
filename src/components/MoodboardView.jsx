@@ -92,6 +92,9 @@ export function MoodboardView({
   const [editingItem, setEditingItem] = useState(null);
   const [detailItem, setDetailItem] = useState(null);
   const [uploadToast, setUploadToast] = useState(null);
+  const [uploadToastError, setUploadToastError] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Upload Form State
   const [formData, setFormData] = useState({
@@ -111,6 +114,7 @@ export function MoodboardView({
   const [selectedImages, setSelectedImages] = useState([]);
   const [inputUrl, setInputUrl] = useState('');
   const fileInputRef = useRef(null);
+  const toastTimeoutRef = useRef(null);
 
   // Category Manager Form State
   const [categoryFormData, setCategoryFormData] = useState({
@@ -402,8 +406,16 @@ export function MoodboardView({
     setSelectedImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
+  // Toast helper (auto-dismiss, supports success/error variant)
+  const flashToast = (message, isError = false, duration = 4000) => {
+    setUploadToastError(isError);
+    setUploadToast(message);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => setUploadToast(null), duration);
+  };
+
   // Save Item (Add Single/Batch or Edit)
-  const handleSaveItem = (e) => {
+  const handleSaveItem = async (e) => {
     e.preventDefault();
 
     let mediaList = selectedImages.map(img => 
@@ -465,56 +477,78 @@ export function MoodboardView({
       finalSubCatId = newSubId;
     }
 
-    if (editingItem) {
-      const targetMedia = mediaList[0];
-      const updated = safeItems.map(item => {
-        if (item.id === editingItem.id) {
-          return {
-            ...item,
-            ...formData,
-            title: formData.title.trim(),
-            notes: (formData.notes || '').trim(),
-            imageUrl: targetMedia.imageUrl,
-            videoUrl: targetMedia.videoUrl || '',
-            mediaType: targetMedia.mediaType || (targetMedia.videoUrl ? 'video' : 'image'),
-            subCategoryId: finalSubCatId
-          };
-        }
-        return item;
-      });
-      onChangeItems?.(updated);
+    const catLabel = getCategory(formData.categoryId)?.label || formData.categoryId;
+    const subLabel = getSubCategoryLabel(formData.categoryId, finalSubCatId);
+
+    // Show spinner & disable form while the batch uploads to the cloud
+    setIsSaving(true);
+    setUploadToast(null);
+    setUploadToastError(false);
+
+    let ok = true;
+    try {
+      if (editingItem) {
+        const targetMedia = mediaList[0];
+        const updated = safeItems.map(item => {
+          if (item.id === editingItem.id) {
+            return {
+              ...item,
+              ...formData,
+              title: formData.title.trim(),
+              notes: (formData.notes || '').trim(),
+              imageUrl: targetMedia.imageUrl,
+              videoUrl: targetMedia.videoUrl || '',
+              mediaType: targetMedia.mediaType || (targetMedia.videoUrl ? 'video' : 'image'),
+              subCategoryId: finalSubCatId
+            };
+          }
+          return item;
+        });
+        const result = onChangeItems?.(updated);
+        if (result && typeof result.then === 'function') ok = (await result) !== false;
+        flashToast(
+          ok
+            ? `✓ Perubahan foto berhasil disimpan ke "${catLabel}" > "${subLabel}"`
+            : '⚠️ Perubahan tersimpan lokal, tapi gagal sinkron ke cloud.',
+          !ok,
+          5000
+        );
+      } else {
+        const timestamp = Date.now();
+        const baseTitle = formData.title.trim();
+        const newItems = mediaList.map((m, index) => ({
+          id: `mb-${timestamp}-${index}-${Math.random().toString(36).substring(2, 6)}`,
+          title: baseTitle ? (mediaList.length > 1 ? `${baseTitle} #${index + 1}` : baseTitle) : '',
+          categoryId: formData.categoryId,
+          subCategoryId: finalSubCatId,
+          imageUrl: m.imageUrl,
+          videoUrl: m.videoUrl || '',
+          mediaType: m.mediaType || (m.videoUrl ? 'video' : 'image'),
+          notes: (formData.notes || '').trim(),
+          source: formData.source || (m.mediaType === 'video' ? (m.platform || 'Video') : 'Pinterest'),
+          createdAt: new Date().toISOString().split('T')[0]
+        }));
+        const result = onChangeItems?.([...newItems, ...safeItems]);
+        if (result && typeof result.then === 'function') ok = (await result) !== false;
+        flashToast(
+          ok
+            ? `✓ Berhasil mengunggah ${newItems.length} foto ke "${catLabel}" > "${subLabel}"`
+            : '⚠️ Foto tersimpan lokal, tapi gagal sinkron ke cloud.',
+          !ok,
+          5000
+        );
+      }
+
       setActiveCategoryView(formData.categoryId);
       setActiveSubCategory(finalSubCatId);
       setSearchQuery('');
-      const catLabel = getCategory(formData.categoryId)?.label || formData.categoryId;
-      const subLabel = getSubCategoryLabel(formData.categoryId, finalSubCatId);
-      setUploadToast(`✓ Perubahan foto berhasil disimpan ke "${catLabel}" > "${subLabel}"`);
-      setTimeout(() => setUploadToast(null), 5000);
-    } else {
-      const timestamp = Date.now();
-      const baseTitle = formData.title.trim();
-      const newItems = mediaList.map((m, index) => ({
-        id: `mb-${timestamp}-${index}-${Math.random().toString(36).substring(2, 6)}`,
-        title: baseTitle ? (mediaList.length > 1 ? `${baseTitle} #${index + 1}` : baseTitle) : '',
-        categoryId: formData.categoryId,
-        subCategoryId: finalSubCatId,
-        imageUrl: m.imageUrl,
-        videoUrl: m.videoUrl || '',
-        mediaType: m.mediaType || (m.videoUrl ? 'video' : 'image'),
-        notes: (formData.notes || '').trim(),
-        source: formData.source || (m.mediaType === 'video' ? (m.platform || 'Video') : 'Pinterest'),
-        createdAt: new Date().toISOString().split('T')[0]
-      }));
-      onChangeItems?.([...newItems, ...safeItems]);
-      setActiveCategoryView(formData.categoryId);
-      setActiveSubCategory(finalSubCatId);
-      setSearchQuery('');
-      const catLabel = getCategory(formData.categoryId)?.label || formData.categoryId;
-      const subLabel = getSubCategoryLabel(formData.categoryId, finalSubCatId);
-      setUploadToast(`✓ Berhasil mengunggah ${newItems.length} foto ke "${catLabel}" > "${subLabel}"`);
-      setTimeout(() => setUploadToast(null), 5000);
+    } catch (err) {
+      console.error('Gagal menyimpan moodboard:', err);
+      flashToast('⚠️ Gagal mengunggah foto ke cloud. Data tetap tersimpan lokal.', true, 5000);
+    } finally {
+      setIsSaving(false);
+      setIsUploadModalOpen(false);
     }
-    setIsUploadModalOpen(false);
   };
 
   // Delete Item (State-driven confirmation, no window.confirm)
@@ -522,27 +556,39 @@ export function MoodboardView({
     setItemToDelete({ id, title: title || 'foto ini' });
   };
 
-  const confirmDeleteItem = () => {
+  const confirmDeleteItem = async () => {
     if (!itemToDelete) return;
     const { id } = itemToDelete;
     if (detailItem?.id === id) setDetailItem(null);
     setItemToDelete(null);
 
-    if (onDeleteItem) {
-      onDeleteItem(id);
-    } else {
-      const updated = safeItems.filter(i => i.id !== id);
-      onChangeItems?.(updated);
-      fetch(`/api/moodboard?id=${encodeURIComponent(id)}&t=${Date.now()}`, {
-        method: 'DELETE',
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
-      }).catch(() => {});
+    setIsDeleting(true);
+    let ok = true;
+    try {
+      if (onDeleteItem) {
+        ok = (await onDeleteItem(id)) !== false;
+      } else {
+        const updated = safeItems.filter(i => i.id !== id);
+        onChangeItems?.(updated);
+        const res = await fetch(`/api/moodboard?id=${encodeURIComponent(id)}&t=${Date.now()}`, {
+          method: 'DELETE',
+          cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        ok = res.ok;
+      }
+      flashToast(
+        ok ? '✓ Foto berhasil dihapus' : '⚠️ Foto terhapus lokal, tapi gagal hapus dari cloud.',
+        !ok,
+        4000
+      );
+    } catch (err) {
+      console.error('Gagal menghapus:', err);
+      flashToast('⚠️ Gagal menghapus foto dari cloud.', true, 4000);
+    } finally {
+      setIsDeleting(false);
     }
-
-    setUploadToast('✓ Foto berhasil dihapus');
-    setTimeout(() => setUploadToast(null), 4000);
   };
 
   // ── Multi-Select Delete Handlers ──────────────────────────────────────────
@@ -566,33 +612,49 @@ export function MoodboardView({
     setSelectedIds(new Set(visibleItems.map(i => i.id)));
   };
 
-  const confirmMultiDelete = () => {
+  const confirmMultiDelete = async () => {
     if (selectedIds.size === 0) return;
     const ids = [...selectedIds];
-    // Optimistic update
-    ids.forEach(id => {
-      if (onDeleteItem) {
-        onDeleteItem(id);
-      } else {
-        fetch(`/api/moodboard?id=${encodeURIComponent(id)}&t=${Date.now()}`, {
-          method: 'DELETE',
-          cache: 'no-store',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id })
-        }).catch(() => {});
-      }
-    });
-    if (!onDeleteItem) {
-      // If no centralized delete handler, update items locally
-      const updated = safeItems.filter(i => !selectedIds.has(i.id));
-      onChangeItems?.(updated);
-    }
-    const count = ids.length;
-    setSelectedIds(new Set());
-    setIsSelectMode(false);
     setShowMultiDeleteConfirm(false);
-    setUploadToast(`✓ ${count} foto berhasil dihapus`);
-    setTimeout(() => setUploadToast(null), 4000);
+
+    setIsDeleting(true);
+    let ok = true;
+    try {
+      if (onDeleteItem) {
+        // Sequential to avoid overwhelming the API
+        for (const id of ids) {
+          const res = await onDeleteItem(id);
+          if (res === false) ok = false;
+        }
+      } else {
+        // Local optimistic update first
+        const updated = safeItems.filter(i => !selectedIds.has(i.id));
+        onChangeItems?.(updated);
+        // Then sync to cloud
+        for (const id of ids) {
+          const res = await fetch(`/api/moodboard?id=${encodeURIComponent(id)}&t=${Date.now()}`, {
+            method: 'DELETE',
+            cache: 'no-store',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+          });
+          if (!res.ok) ok = false;
+        }
+      }
+      const count = ids.length;
+      setSelectedIds(new Set());
+      setIsSelectMode(false);
+      flashToast(
+        ok ? `✓ ${count} foto berhasil dihapus` : `⚠️ ${count} foto terhapus lokal, tapi gagal hapus dari cloud.`,
+        !ok,
+        4000
+      );
+    } catch (err) {
+      console.error('Gagal menghapus multi:', err);
+      flashToast('⚠️ Gagal menghapus foto dari cloud.', true, 4000);
+    } finally {
+      setIsDeleting(false);
+    }
   };
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -796,16 +858,27 @@ export function MoodboardView({
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
-          className="p-3 bg-emerald-50 border border-emerald-200/90 text-emerald-900 rounded-2xl text-xs font-bold flex items-center justify-between shadow-xs"
+          className={`p-3 border rounded-2xl text-xs font-bold flex items-center justify-between shadow-xs ${
+            uploadToastError
+              ? 'bg-rose-50 border-rose-200/90 text-rose-900'
+              : 'bg-emerald-50 border-emerald-200/90 text-emerald-900'
+          }`}
         >
           <div className="flex items-center gap-2">
-            <Check size={16} className="text-emerald-600 shrink-0" />
+            {uploadToastError ? (
+              <AlertCircle size={16} className="text-rose-600 shrink-0" />
+            ) : (
+              <Check size={16} className="text-emerald-600 shrink-0" />
+            )}
             <span>{uploadToast}</span>
           </div>
           <button
             type="button"
-            onClick={() => setUploadToast(null)}
-            className="text-emerald-600 hover:text-emerald-900 cursor-pointer p-0.5"
+            onClick={() => {
+              setUploadToast(null);
+              setUploadToastError(false);
+            }}
+            className={`cursor-pointer p-0.5 ${uploadToastError ? 'text-rose-600 hover:text-rose-900' : 'text-emerald-600 hover:text-emerald-900'}`}
           >
             <X size={14} />
           </button>
@@ -1358,7 +1431,7 @@ export function MoodboardView({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 30, scale: 0.98 }}
                 transition={{ duration: 0.2 }}
-                className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200/80 overflow-hidden flex flex-col max-h-[92vh]"
+                className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200/80 overflow-hidden flex flex-col max-h-[92vh] relative"
               >
                 {/* Mobile Drag Indicator */}
                 <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto mt-2.5 mb-1 sm:hidden" />
@@ -1381,7 +1454,8 @@ export function MoodboardView({
                   <button
                     type="button"
                     onClick={() => setIsUploadModalOpen(false)}
-                    className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition cursor-pointer"
+                    disabled={isSaving}
+                    className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
                     <X size={16} />
                   </button>
@@ -1505,15 +1579,24 @@ export function MoodboardView({
                           htmlFor="moodboard-file-input"
                           className="flex-1 py-2.5 px-3 border border-dashed border-stone-300 hover:border-stone-800 bg-stone-50 hover:bg-stone-100 rounded-xl text-xs font-bold text-stone-700 flex items-center justify-center gap-2 cursor-pointer transition text-center"
                         >
-                          <Upload size={14} className="text-amber-800 shrink-0" />
-                          <span>
-                            {isCompressing 
-                              ? `Mengompresi Foto (${compressProgress ? `${compressProgress.current}/${compressProgress.total}` : '...'})` 
-                              : editingItem 
-                                ? 'Pilih Foto Pengganti' 
-                                : 'Pilih Foto (Bisa Banyak Sekaligus)'
-                            }
-                          </span>
+                          {isCompressing ? (
+                            <>
+                              <span className="w-4 h-4 rounded-full border-2 border-stone-400 border-t-amber-700 animate-spin shrink-0" />
+                              <span>
+                                Mengompresi Foto ({compressProgress ? `${compressProgress.current}/${compressProgress.total}` : '...'})
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload size={14} className="text-amber-800 shrink-0" />
+                              <span>
+                                {editingItem 
+                                  ? 'Pilih Foto Pengganti' 
+                                  : 'Pilih Foto (Bisa Banyak Sekaligus)'
+                                }
+                              </span>
+                            </>
+                          )}
                         </label>
                       </div>
 
@@ -1638,16 +1721,22 @@ export function MoodboardView({
                     <button
                       type="button"
                       onClick={() => setIsUploadModalOpen(false)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 hover:bg-stone-100 transition"
+                      disabled={isSaving}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-stone-600 hover:bg-stone-100 transition disabled:opacity-50"
                     >
                       Batal
                     </button>
                     <button
                       type="submit"
-                      disabled={isCompressing || (selectedImages.length === 0 && !inputUrl.trim() && !formData.imageUrl.trim())}
-                      className="px-5 py-2 rounded-xl text-xs font-bold bg-stone-900 text-white hover:bg-stone-800 transition shadow-xs disabled:opacity-50 cursor-pointer"
+                      disabled={isCompressing || isSaving || (selectedImages.length === 0 && !inputUrl.trim() && !formData.imageUrl.trim())}
+                      className="px-5 py-2 rounded-xl text-xs font-bold bg-stone-900 text-white hover:bg-stone-800 transition shadow-xs disabled:opacity-50 cursor-pointer inline-flex items-center gap-2"
                     >
-                      {editingItem 
+                      {isSaving ? (
+                        <>
+                          <span className="w-3.5 h-3.5 rounded-full border-2 border-stone-400 border-t-white animate-spin" />
+                          Mengunggah...
+                        </>
+                      ) : editingItem 
                         ? 'Simpan Perubahan' 
                         : selectedImages.length > 1 
                           ? `Selesai & Upload ${selectedImages.length} Foto` 
@@ -1655,6 +1744,19 @@ export function MoodboardView({
                     </button>
                   </div>
                 </form>
+
+                {/* Spinner overlay: shown while the uploaded media syncs to the cloud */}
+                {isSaving && (
+                  <div className="absolute inset-0 z-30 bg-white/75 backdrop-blur-sm flex flex-col items-center justify-center gap-3 rounded-t-3xl sm:rounded-3xl">
+                    <div className="w-11 h-11 rounded-full border-[3px] border-amber-300 border-t-amber-800 animate-spin" />
+                    <p className="text-sm font-extrabold text-stone-800">
+                      {editingItem ? 'Menyimpan Perubahan...' : `Mengunggah ${selectedImages.length} foto...`}
+                    </p>
+                    <p className="text-[11px] text-stone-500 text-center px-6 leading-snug">
+                      Sedang mengunggah ke cloud. Mohon tunggu, jangan tutup halaman ini.
+                    </p>
+                  </div>
+                )}
               </motion.div>
             </div>
           )}
@@ -2405,7 +2507,7 @@ export function MoodboardView({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 15 }}
                 transition={{ duration: 0.15 }}
-                className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-stone-200 p-5 space-y-4"
+                className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-stone-200 p-5 space-y-4 relative"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200">
@@ -2423,19 +2525,39 @@ export function MoodboardView({
                   <button
                     type="button"
                     onClick={() => setItemToDelete(null)}
-                    className="px-3.5 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition cursor-pointer"
+                    disabled={isDeleting}
+                    className="px-3.5 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     Batal
                   </button>
                   <button
                     type="button"
                     onClick={confirmDeleteItem}
-                    className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    disabled={isDeleting}
+                    className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-1.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <Trash2 size={13} />
-                    <span>Ya, Hapus</span>
+                    {isDeleting ? (
+                      <>
+                        <span className="w-3.5 h-3.5 rounded-full border-2 border-rose-400 border-t-white animate-spin" />
+                        Menghapus...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 size={13} />
+                        <span>Ya, Hapus</span>
+                      </>
+                    )}
                   </button>
                 </div>
+
+                {/* Spinner overlay during cloud sync */}
+                {isDeleting && (
+                  <div className="absolute inset-0 z-10 bg-white/85 backdrop-blur-sm flex flex-col items-center justify-center gap-2 rounded-3xl">
+                    <div className="w-10 h-10 rounded-full border-[3px] border-rose-300 border-t-rose-600 animate-spin" />
+                    <p className="text-sm font-extrabold text-stone-800">Menghapus dari cloud...</p>
+                    <p className="text-[11px] text-stone-500 text-center px-4">Mohon tunggu sebentar.</p>
+                  </div>
+                )}
               </motion.div>
             </div>
           )}
@@ -2522,7 +2644,7 @@ export function MoodboardView({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 15 }}
                 transition={{ duration: 0.15 }}
-                className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-stone-200 p-5 space-y-4"
+                className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-stone-200 p-5 space-y-4 relative"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200">
@@ -2540,19 +2662,39 @@ export function MoodboardView({
                   <button
                     type="button"
                     onClick={() => setShowMultiDeleteConfirm(false)}
-                    className="px-3.5 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition cursor-pointer"
+                    disabled={isDeleting}
+                    className="px-3.5 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     Batal
                   </button>
                   <button
                     type="button"
                     onClick={confirmMultiDelete}
-                    className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    disabled={isDeleting}
+                    className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-1.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <Trash2 size={13} />
-                    <span>Ya, Hapus Semua</span>
+                    {isDeleting ? (
+                      <>
+                        <span className="w-3.5 h-3.5 rounded-full border-2 border-rose-400 border-t-white animate-spin" />
+                        Menghapus...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 size={13} />
+                        <span>Ya, Hapus Semua</span>
+                      </>
+                    )}
                   </button>
                 </div>
+
+                {/* Spinner overlay during cloud sync */}
+                {isDeleting && (
+                  <div className="absolute inset-0 z-10 bg-white/85 backdrop-blur-sm flex flex-col items-center justify-center gap-2 rounded-3xl">
+                    <div className="w-10 h-10 rounded-full border-[3px] border-rose-300 border-t-rose-600 animate-spin" />
+                    <p className="text-sm font-extrabold text-stone-800">Menghapus {selectedIds.size} foto dari cloud...</p>
+                    <p className="text-[11px] text-stone-500 text-center px-4">Mohon tunggu sebentar.</p>
+                  </div>
+                )}
               </motion.div>
             </div>
           )}

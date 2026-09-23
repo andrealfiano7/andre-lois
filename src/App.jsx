@@ -426,15 +426,32 @@ export default function App() {
 
   const handleMoodboardItemsChange = (newList) => {
     setMoodboardItems(newList);
-    fetch('/api/moodboard', {
+    // Return a Promise so callers (e.g. upload modal) can show a spinner
+    // while the batch is actually synced to the Neon database.
+    return fetch('/api/moodboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newList)
-    }).catch(() => {});
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          let message = `Kode error HTTP ${res.status}`;
+          try {
+            const json = await res.json();
+            if (json?.error) message = json.error;
+          } catch {}
+          throw new Error(message);
+        }
+        return true;
+      })
+      .catch((error) => {
+        console.error('Gagal upload moodboard ke cloud:', error);
+        return false;
+      });
   };
 
   const handleMoodboardItemDelete = async (id) => {
-    if (!id) return;
+    if (!id) return false;
     deletedMoodboardIdsRef.current.add(id);
 
     // 1. Optimistic update in UI and local storage
@@ -450,7 +467,7 @@ export default function App() {
 
     // 2. Perform direct DELETE request to Neon Postgres API
     try {
-      await fetch(`/api/moodboard?id=${encodeURIComponent(id)}&t=${Date.now()}`, {
+      const res = await fetch(`/api/moodboard?id=${encodeURIComponent(id)}&t=${Date.now()}`, {
         method: 'DELETE',
         cache: 'no-store',
         headers: {
@@ -460,8 +477,10 @@ export default function App() {
         },
         body: JSON.stringify({ id })
       });
+      return res.ok;
     } catch (err) {
       console.error('Gagal menghapus moodboard item:', err);
+      return false;
     }
   };
 
