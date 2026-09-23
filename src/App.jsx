@@ -245,9 +245,27 @@ export default function App() {
         .then(data => {
           if (!isMounted || !data.success || !Array.isArray(data.data) || data.data.length === 0) return;
           setMoodboardCategories(prev => {
+            // Preserve locally added subcategories if cloud hasn't caught up
+            const remoteCats = data.data;
+            const merged = remoteCats.map(rc => {
+              const prevCat = prev.find(pc => pc.id === rc.id);
+              if (!prevCat || !Array.isArray(prevCat.subCategories)) return rc;
+              const remoteSubIds = new Set((rc.subCategories || []).map(s => s.id));
+              const localSubs = prevCat.subCategories.filter(s => !remoteSubIds.has(s.id));
+              return {
+                ...rc,
+                subCategories: [...(rc.subCategories || []), ...localSubs]
+              };
+            });
             const prevStr = JSON.stringify(prev);
-            const nextStr = JSON.stringify(data.data);
-            return prevStr !== nextStr ? data.data : prev;
+            const nextStr = JSON.stringify(merged);
+            if (prevStr !== nextStr) {
+              try {
+                localStorage.setItem(MOODBOARD_CATEGORIES_STORAGE, JSON.stringify(merged));
+              } catch (e) {}
+              return merged;
+            }
+            return prev;
           });
         })
         .catch(() => {});
@@ -268,13 +286,21 @@ export default function App() {
             !deletedMoodboardIdsRef.current.has(it.id)
           );
           setMoodboardItems(prev => {
+            // Merge cloud data with any locally added photos that aren't yet in cloud
+            const remoteIds = new Set(cleanData.map(i => i.id));
+            const localOnly = prev.filter(i => 
+              !remoteIds.has(i.id) && 
+              !deletedMoodboardIdsRef.current.has(i.id) &&
+              !DEPRECATED_TEMPLATE_IDS.has(i.id)
+            );
+            const merged = [...cleanData, ...localOnly];
             const prevStr = JSON.stringify(prev);
-            const nextStr = JSON.stringify(cleanData);
+            const nextStr = JSON.stringify(merged);
             if (prevStr !== nextStr) {
               try {
-                localStorage.setItem(MOODBOARD_STORAGE, JSON.stringify(cleanData));
+                localStorage.setItem(MOODBOARD_STORAGE, JSON.stringify(merged));
               } catch (e) {}
-              return cleanData;
+              return merged;
             }
             return prev;
           });
@@ -288,13 +314,13 @@ export default function App() {
     syncMoodboard();
     syncMoodboardCategories();
 
-    // Poll for updates every 4 seconds
+    // Poll for updates every 15 seconds (reduced from 4s to prevent Neon quota exhaustion)
     const interval = setInterval(() => {
       syncRundown();
       syncPhotos();
       syncMoodboard();
       syncMoodboardCategories();
-    }, 4000);
+    }, 15000);
 
     // Sync immediately on focus or tab visibility change
     const handleActiveSync = () => {

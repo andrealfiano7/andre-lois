@@ -45,20 +45,9 @@ export default async function handler(req, res) {
           }
         });
 
-        for (const item of cleanData) {
-          await prisma.moodboardItem.upsert({
-            where: { id: item.id },
-            update: {
-              title: item.title || '',
-              categoryId: item.categoryId,
-              subCategoryId: item.subCategoryId,
-              imageUrl: item.imageUrl,
-              videoUrl: item.videoUrl || '',
-              mediaType: item.mediaType || 'image',
-              notes: item.notes || '',
-              source: item.source || ''
-            },
-            create: {
+        if (cleanData.length > 0) {
+          await prisma.moodboardItem.createMany({
+            data: cleanData.map(item => ({
               id: item.id,
               title: item.title || '',
               categoryId: item.categoryId,
@@ -69,7 +58,8 @@ export default async function handler(req, res) {
               notes: item.notes || '',
               source: item.source || '',
               createdAt: item.createdAt || new Date().toISOString().split('T')[0]
-            }
+            })),
+            skipDuplicates: true
           });
         }
         return res.status(200).json({ success: true, message: 'Batch moodboard items updated' });
