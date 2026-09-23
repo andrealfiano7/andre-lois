@@ -567,9 +567,9 @@ export function MoodboardView({
               </div>
 
               {/* Right: Search + Action Buttons */}
-              <div className="flex items-center gap-2 shrink-0 self-end md:self-auto flex-wrap sm:flex-nowrap">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 {/* Search input */}
-                <div className="relative w-44 sm:w-52 shrink-0">
+                <div className="relative flex-1 sm:w-52 sm:flex-initial min-w-0">
                   <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
                   <input
                     type="text"
@@ -592,21 +592,22 @@ export function MoodboardView({
                 <button
                   type="button"
                   onClick={() => setIsSubCategoryModalOpen(true)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  className="shrink-0 whitespace-nowrap px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-200 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
                   title="Kelola Sub-Kategori"
                 >
                   <Layers size={13} className="text-stone-500" />
                   <span className="hidden lg:inline">Kelola Sub-Kategori</span>
-                  <span className="lg:hidden">Sub-Kat</span>
+                  <span className="lg:hidden text-[11px]">Sub-Kat</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleOpenAdd(currentCategoryObj.id, activeSubCategory !== 'all' ? activeSubCategory : null)}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-stone-900 hover:bg-stone-800 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  className="shrink-0 whitespace-nowrap px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold bg-stone-900 hover:bg-stone-800 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
                   <Upload size={13} />
-                  <span>Upload Foto</span>
+                  <span className="hidden sm:inline">Upload Foto</span>
+                  <span className="sm:hidden text-[11px]">Upload</span>
                 </button>
               </div>
             </div>
@@ -682,24 +683,28 @@ export function MoodboardView({
                 const subPhotos = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === sub.id);
                 return (
                   <div key={sub.id} className="space-y-3">
-                    <div className="flex items-center justify-between gap-3 border-b border-[#EADBCE] pb-2">
-                      <div className="flex items-center gap-2">
-                        <Folder size={16} className="text-stone-400" />
-                        <h3 className="text-sm sm:text-base font-extrabold text-stone-900 tracking-tight">
-                          {sub.label}
-                        </h3>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 text-stone-700 border border-stone-200">
-                          {subPhotos.length} foto
-                        </span>
+                    <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-3 border-b border-[#EADBCE] pb-2.5">
+                      <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
+                        <Folder size={16} className="text-stone-400 shrink-0 mt-0.5 sm:mt-0" />
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                          <h3 className="text-sm sm:text-base font-extrabold text-stone-900 tracking-tight leading-snug">
+                            {sub.label}
+                          </h3>
+                          <span className="shrink-0 whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 text-stone-700 border border-stone-200">
+                            {subPhotos.length} foto
+                          </span>
+                        </div>
                       </div>
                       
                       <button
                         type="button"
                         onClick={() => handleOpenAdd(currentCategoryObj.id, sub.id)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-semibold text-stone-700 hover:text-stone-900 hover:bg-stone-100 border border-stone-200 transition flex items-center gap-1 cursor-pointer"
+                        className="shrink-0 whitespace-nowrap px-2.5 py-1 rounded-xl text-xs font-bold text-stone-700 hover:text-stone-900 hover:bg-stone-100 bg-white border border-stone-200/90 transition flex items-center gap-1 cursor-pointer shadow-2xs mt-0.5 sm:mt-0"
+                        title={`Tambah foto ke ${sub.label}`}
                       >
-                        <Plus size={13} />
-                        <span>Tambah Foto</span>
+                        <Plus size={13} className="text-stone-500" />
+                        <span className="hidden sm:inline">Tambah Foto</span>
+                        <span className="sm:hidden text-[11px]">Foto</span>
                       </button>
                     </div>
 
