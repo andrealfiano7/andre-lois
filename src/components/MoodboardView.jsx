@@ -516,6 +516,7 @@ export function MoodboardView({
     if (window.confirm(`Hapus inspirasi "${itemLabel}" dari moodboard?`)) {
       const updated = safeItems.filter(i => i.id !== id);
       onChangeItems?.(updated);
+      fetch(`/api/moodboard?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
       if (detailItem?.id === id) setDetailItem(null);
     }
   };

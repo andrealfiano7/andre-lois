@@ -56,3 +56,20 @@ model RundownItem {
 
   @@index([phase])
 }
+
+model MoodboardItem {
+  id            String   @id
+  title         String?
+  categoryId    String
+  subCategoryId String
+  imageUrl      String
+  videoUrl      String?
+  mediaType     String   @default("image")
+  notes         String?
+  source        String?
+  createdAt     String?
+  updatedAt     DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([subCategoryId])
+}

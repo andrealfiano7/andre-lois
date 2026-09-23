@@ -234,14 +234,55 @@ export default function App() {
         .catch(() => {});
     };
 
+    const syncMoodboard = () => {
+      fetch('/api/moodboard')
+        .then(res => res.json())
+        .then(data => {
+          if (!isMounted || !data.success || !Array.isArray(data.data)) return;
+
+          if (data.data.length === 0) {
+            // DB is empty, push local items to Neon DB
+            const local = loadAndMigrateMoodboardItems();
+            if (local && local.length > 0) {
+              fetch('/api/moodboard', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(local)
+              }).catch(() => {});
+            }
+          } else {
+            // If local storage has items that DB doesn't have yet (e.g. uploaded recently before cloud sync)
+            const local = loadAndMigrateMoodboardItems();
+            const dbIds = new Set(data.data.map(i => i.id));
+            const unsynced = local.filter(i => !dbIds.has(i.id));
+            if (unsynced.length > 0) {
+              fetch('/api/moodboard', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(unsynced)
+              }).catch(() => {});
+            }
+
+            setMoodboardItems(prev => {
+              const prevStr = JSON.stringify(prev);
+              const nextStr = JSON.stringify(data.data);
+              return prevStr !== nextStr ? data.data : prev;
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
     // Initial sync
     syncRundown();
     syncPhotos();
+    syncMoodboard();
 
     // Poll for updates every 4 seconds
     const interval = setInterval(() => {
       syncRundown();
       syncPhotos();
+      syncMoodboard();
     }, 4000);
 
     // Sync immediately on focus or tab visibility change
@@ -249,6 +290,7 @@ export default function App() {
       if (document.visibilityState === 'visible') {
         syncRundown();
         syncPhotos();
+        syncMoodboard();
       }
     };
     window.addEventListener('focus', handleActiveSync);
@@ -378,6 +420,11 @@ export default function App() {
 
   const handleMoodboardItemsChange = (newList) => {
     setMoodboardItems(newList);
+    fetch('/api/moodboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newList)
+    }).catch(() => {});
   };
 
   const handleMoodboardCategoriesChange = (newList) => {
