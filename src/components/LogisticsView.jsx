@@ -281,7 +281,7 @@ export function LogisticsView({ items = [], onChange, onResetToDefault }) {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 pb-12 sm:pb-0">
       {/* Toast Notification Copy Feedback */}
       <AnimatePresence>
         {copyFeedback && typeof document !== 'undefined' && createPortal(
@@ -551,31 +551,31 @@ export function LogisticsView({ items = [], onChange, onResetToDefault }) {
           {/* SECTION 1: BARANG DI HOTEL (Groom & Bride Side-by-Side) */}
           {(activeTab === 'all' || activeTab === 'hotel') && (groomList.length > 0 || brideList.length > 0) && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+              <div className="flex items-start sm:items-center justify-between gap-2.5">
+                <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
+                  <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold shrink-0 mt-0.5 sm:mt-0">
                     <Building2 size={15} />
                   </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-extrabold text-stone-900">
+                  <div className="min-w-0">
+                    <h3 className="text-sm sm:text-base font-extrabold text-stone-900 tracking-tight leading-snug">
                       Tabel 1: List Barang di Hotel
                     </h3>
-                    <p className="text-[11px] text-stone-500">
+                    <p className="text-[11px] text-stone-500 leading-tight mt-0.5 line-clamp-1 sm:line-clamp-none">
                       Perlengkapan dan aksesoris pribadi kedua mempelai di kamar hotel
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenAdd('Groom')}
-                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition flex items-center gap-1"
-                  >
-                    <Plus size={12} />
-                    <span>+ Item Hotel</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenAdd('Groom')}
+                  className="shrink-0 whitespace-nowrap px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition flex items-center gap-1 shadow-2xs cursor-pointer mt-0.5 sm:mt-0"
+                  title="Tambah Barang di Hotel"
+                >
+                  <Plus size={13} className="text-amber-700" />
+                  <span className="hidden sm:inline">+ Item Hotel</span>
+                  <span className="sm:hidden text-[11px]">+ Item</span>
+                </button>
               </div>
 
               {/* Two Column Layout: Groom vs Bride */}
@@ -665,16 +665,16 @@ export function LogisticsView({ items = [], onChange, onResetToDefault }) {
           {/* SECTION 2: LIST KEPERLUAN HOLY MATRIMONY */}
           {(activeTab === 'all' || activeTab === 'matrimony') && matrimonyList.length > 0 && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-800 flex items-center justify-center font-bold">
+              <div className="flex items-start sm:items-center justify-between gap-2.5">
+                <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
+                  <div className="w-7 h-7 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-bold shrink-0 mt-0.5 sm:mt-0">
                     <Church size={15} />
                   </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-extrabold text-stone-900">
+                  <div className="min-w-0">
+                    <h3 className="text-sm sm:text-base font-extrabold text-stone-900 tracking-tight leading-snug">
                       Tabel 2: List Keperluan Holy Matrimony
                     </h3>
-                    <p className="text-[11px] text-stone-500">
+                    <p className="text-[11px] text-stone-500 leading-tight mt-0.5 line-clamp-1 sm:line-clamp-none">
                       Perlengkapan teknis, buku acara, meja altar, dan penanggung jawab (PIC)
                     </p>
                   </div>
@@ -683,10 +683,12 @@ export function LogisticsView({ items = [], onChange, onResetToDefault }) {
                 <button
                   type="button"
                   onClick={() => handleOpenAdd('Holy Matrimony')}
-                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-50 text-purple-900 border border-purple-200 hover:bg-purple-100 transition flex items-center gap-1"
+                  className="shrink-0 whitespace-nowrap px-2.5 py-1.5 rounded-xl text-xs font-bold bg-purple-50 text-purple-900 border border-purple-200 hover:bg-purple-100 transition flex items-center gap-1 shadow-2xs cursor-pointer mt-0.5 sm:mt-0"
+                  title="Tambah Keperluan Holy Matrimony"
                 >
-                  <Plus size={12} />
-                  <span>+ Item Matrimony</span>
+                  <Plus size={13} className="text-purple-700" />
+                  <span className="hidden sm:inline">+ Item Matrimony</span>
+                  <span className="sm:hidden text-[11px]">+ Item</span>
                 </button>
               </div>
 
@@ -706,76 +708,153 @@ export function LogisticsView({ items = [], onChange, onResetToDefault }) {
                   {matrimonyList.map((item) => (
                     <div 
                       key={item.id}
-                      className={`p-3.5 sm:px-5 sm:py-3 transition-colors flex flex-col md:grid md:grid-cols-12 gap-2 sm:gap-3 items-start md:items-center ${
-                        item.status === 'Siap' ? 'bg-emerald-50/30' : 'hover:bg-stone-50/60'
+                      className={`p-3 sm:px-5 sm:py-3 transition-colors ${
+                        item.status === 'Siap' ? 'bg-emerald-50/25' : 'hover:bg-stone-50/60'
                       }`}
                     >
-                      {/* Checkbox & Status */}
-                      <div className="md:col-span-1 flex items-center gap-2">
+                      {/* Mobile Card Layout (< md) */}
+                      <div className="md:hidden flex items-start gap-3">
+                        {/* Checkbox */}
                         <button
                           type="button"
                           onClick={() => handleToggleStatus(item.id)}
-                          className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                          className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all cursor-pointer shrink-0 mt-0.5 ${
                             item.status === 'Siap' 
-                              ? 'bg-emerald-600 text-white shadow-xs' 
+                              ? 'bg-emerald-600 text-white shadow-2xs' 
                               : 'border-2 border-stone-300 hover:border-stone-400 bg-white'
                           }`}
+                          title={item.status === 'Siap' ? 'Batal siap' : 'Tandai siap'}
                         >
-                          {item.status === 'Siap' && <Check size={14} className="stroke-[3]" />}
+                          {item.status === 'Siap' && <Check size={13} className="stroke-[3]" />}
                         </button>
-                        <span className="md:hidden text-[11px] font-bold text-stone-500">
-                          {item.status === 'Siap' ? 'Sudah Siap' : 'Belum Siap'}
-                        </span>
+
+                        {/* Content Area */}
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          {/* Name + Actions Header */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <h4 className={`text-xs sm:text-sm font-extrabold tracking-tight leading-snug ${
+                                item.status === 'Siap' ? 'text-stone-400 line-through' : 'text-stone-900'
+                              }`}>
+                                {item.name}
+                              </h4>
+                              {item.notes && (
+                                <p className="text-[11px] text-stone-500 leading-relaxed mt-0.5">
+                                  {item.notes}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Actions Inline at Top-Right */}
+                            <div className="flex items-center gap-0.5 shrink-0 -mt-0.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEdit(item)}
+                                className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                                title="Edit"
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteItem(item.id, item.name)}
+                                className="p-1 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                title="Hapus"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Meta Row: PIC + Location + Status */}
+                          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap text-[11px]">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-extrabold border ${getPicBadge(item.pic)} shrink-0`}>
+                              <Briefcase size={10} />
+                              <span>{item.pic}</span>
+                            </span>
+
+                            {item.location && (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-stone-500 shrink-0">
+                                <MapPin size={11} className="text-stone-400" />
+                                <span>{item.location}</span>
+                              </span>
+                            )}
+
+                            <span className={`inline-flex items-center text-[10px] font-bold px-1.5 py-0.2 rounded-md shrink-0 ${
+                              item.status === 'Siap' 
+                                ? 'bg-emerald-100/70 text-emerald-800' 
+                                : 'bg-stone-100 text-stone-500'
+                            }`}>
+                              {item.status === 'Siap' ? 'Siap' : 'Belum'}
+                            </span>
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Nama Barang */}
-                      <div className="md:col-span-5 min-w-0">
-                        <div className="flex items-center gap-2">
+                      {/* Desktop Grid Layout (>= md) */}
+                      <div className="hidden md:grid md:grid-cols-12 gap-3 items-center">
+                        {/* Checkbox */}
+                        <div className="col-span-1 flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStatus(item.id)}
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                              item.status === 'Siap' 
+                                ? 'bg-emerald-600 text-white shadow-xs' 
+                                : 'border-2 border-stone-300 hover:border-stone-400 bg-white'
+                            }`}
+                          >
+                            {item.status === 'Siap' && <Check size={14} className="stroke-[3]" />}
+                          </button>
+                        </div>
+
+                        {/* Nama Barang */}
+                        <div className="col-span-5 min-w-0">
                           <span className={`text-xs sm:text-sm font-bold tracking-tight ${
                             item.status === 'Siap' ? 'text-stone-400 line-through' : 'text-stone-900'
                           }`}>
                             {item.name}
                           </span>
+                          {item.notes && (
+                            <p className="text-[11px] text-stone-500 mt-0.5">
+                              {item.notes}
+                            </p>
+                          )}
                         </div>
-                        {item.notes && (
-                          <p className="text-[11px] text-stone-500 mt-0.5">
-                            {item.notes}
-                          </p>
-                        )}
-                      </div>
 
-                      {/* PIC Badge */}
-                      <div className="md:col-span-3">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-extrabold border ${getPicBadge(item.pic)}`}>
-                          <Briefcase size={12} />
-                          <span>{item.pic}</span>
-                        </span>
-                      </div>
+                        {/* PIC Badge */}
+                        <div className="col-span-3">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-extrabold border ${getPicBadge(item.pic)}`}>
+                            <Briefcase size={12} />
+                            <span>{item.pic}</span>
+                          </span>
+                        </div>
 
-                      {/* Lokasi */}
-                      <div className="md:col-span-2 text-[11px] text-stone-500 flex items-center gap-1">
-                        <MapPin size={12} className="text-stone-400 shrink-0" />
-                        <span className="truncate">{item.location || 'Tempat Ibadah'}</span>
-                      </div>
+                        {/* Lokasi */}
+                        <div className="col-span-2 text-[11px] text-stone-500 flex items-center gap-1">
+                          <MapPin size={12} className="text-stone-400 shrink-0" />
+                          <span className="truncate">{item.location || 'Tempat Ibadah'}</span>
+                        </div>
 
-                      {/* Action Buttons */}
-                      <div className="md:col-span-1 flex items-center justify-end gap-1 self-end md:self-auto w-full md:w-auto pt-2 md:pt-0 border-t md:border-none border-stone-100">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(item)}
-                          className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
-                          title="Edit"
-                        >
-                          <Edit3 size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteItem(item.id, item.name)}
-                          className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                          title="Hapus"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {/* Action Buttons */}
+                        <div className="col-span-1 flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(item)}
+                            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                            title="Edit"
+                          >
+                            <Edit3 size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteItem(item.id, item.name)}
+                            className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title="Hapus"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1092,13 +1171,13 @@ function ItemRow({ item, onToggle, onEdit, onDelete, isBride = false }) {
         </button>
 
         <div className="min-w-0 flex-1">
-          <p className={`text-xs font-bold truncate ${
+          <p className={`text-xs font-bold leading-snug break-words ${
             isReady ? 'text-stone-400 line-through' : 'text-stone-900'
           }`}>
             {item.name}
           </p>
           {item.notes && (
-            <p className="text-[10px] text-stone-500 truncate mt-0.5">
+            <p className="text-[10px] text-stone-500 leading-tight mt-0.5 break-words">
               {item.notes}
             </p>
           )}
