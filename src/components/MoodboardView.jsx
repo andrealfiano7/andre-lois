@@ -90,12 +90,13 @@ export function MoodboardView({
   const [isSubCategoryModalOpen, setIsSubCategoryModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [detailItem, setDetailItem] = useState(null);
+  const [uploadToast, setUploadToast] = useState(null);
 
   // Upload Form State
   const [formData, setFormData] = useState({
     title: '',
     categoryId: 'dekorasi',
-    subCategoryId: 'before-wedding',
+    subCategoryId: 'altar',
     imageUrl: '',
     videoUrl: '',
     mediaType: 'image',
@@ -258,7 +259,7 @@ export function MoodboardView({
 
     const defaultCat = targetCatId || activeCategoryView || safeCategories[0]?.id || 'dekorasi';
     const catObj = safeCategories.find(c => c.id === defaultCat) || safeCategories[0];
-    const defaultSub = targetSubCatId || (activeSubCategory !== 'all' ? activeSubCategory : (catObj?.subCategories?.[0]?.id || 'before-wedding'));
+    const defaultSub = targetSubCatId || (activeSubCategory !== 'all' ? activeSubCategory : (catObj?.subCategories?.[0]?.id || 'altar'));
 
     setFormData({
       title: '',
@@ -470,6 +471,13 @@ export function MoodboardView({
         return item;
       });
       onChangeItems?.(updated);
+      setActiveCategoryView(formData.categoryId);
+      setActiveSubCategory(finalSubCatId);
+      setSearchQuery('');
+      const catLabel = getCategory(formData.categoryId)?.label || formData.categoryId;
+      const subLabel = getSubCategoryLabel(formData.categoryId, finalSubCatId);
+      setUploadToast(`✓ Perubahan foto berhasil disimpan ke "${catLabel}" > "${subLabel}"`);
+      setTimeout(() => setUploadToast(null), 5000);
     } else {
       const timestamp = Date.now();
       const baseTitle = formData.title.trim();
@@ -486,6 +494,13 @@ export function MoodboardView({
         createdAt: new Date().toISOString().split('T')[0]
       }));
       onChangeItems?.([...newItems, ...safeItems]);
+      setActiveCategoryView(formData.categoryId);
+      setActiveSubCategory(finalSubCatId);
+      setSearchQuery('');
+      const catLabel = getCategory(formData.categoryId)?.label || formData.categoryId;
+      const subLabel = getSubCategoryLabel(formData.categoryId, finalSubCatId);
+      setUploadToast(`✓ Berhasil mengunggah ${newItems.length} foto ke "${catLabel}" > "${subLabel}"`);
+      setTimeout(() => setUploadToast(null), 5000);
     }
     setIsUploadModalOpen(false);
   };
@@ -703,6 +718,27 @@ export function MoodboardView({
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Toast Notification for Upload Success */}
+      {uploadToast && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="p-3 bg-emerald-50 border border-emerald-200/90 text-emerald-900 rounded-2xl text-xs font-bold flex items-center justify-between shadow-xs"
+        >
+          <div className="flex items-center gap-2">
+            <Check size={16} className="text-emerald-600 shrink-0" />
+            <span>{uploadToast}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setUploadToast(null)}
+            className="text-emerald-600 hover:text-emerald-900 cursor-pointer p-0.5"
+          >
+            <X size={14} />
+          </button>
+        </motion.div>
+      )}
 
       {/* ========================================================================= */}
       {/* LEVEL 2: DEDICATED CATEGORY PAGE (HALAMAN KHUSUS PER KATEGORI & SUB-KAT)  */}
@@ -1516,8 +1552,8 @@ export function MoodboardView({
                       {editingItem 
                         ? 'Simpan Perubahan' 
                         : selectedImages.length > 1 
-                          ? `Upload ${selectedImages.length} Foto Sekaligus` 
-                          : 'Upload ke Moodboard'}
+                          ? `Selesai & Upload ${selectedImages.length} Foto` 
+                          : 'Selesai & Simpan ke Moodboard'}
                     </button>
                   </div>
                 </form>
