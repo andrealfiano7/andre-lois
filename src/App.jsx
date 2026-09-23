@@ -10,7 +10,8 @@ import {
   ExternalLink, 
   Plus, 
   ArrowRight,
-  Luggage
+  Luggage,
+  Palette
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import logoImg from './assets/logo.png';
@@ -19,6 +20,7 @@ import { useCountdown } from './hooks/useCountdown';
 import { GOOGLE_SHEET_URL } from './data/initialTasks';
 import { INITIAL_PHOTO_LIST, INITIAL_RUNDOWN } from './data/otherSheets';
 import { INITIAL_LOGISTICS_LIST } from './data/initialLogistics';
+import { INITIAL_MOODBOARD_ITEMS, DEFAULT_MOODBOARD_CATEGORIES } from './data/initialMoodboard';
 import { StatsOverview } from './components/StatsOverview';
 import { ViewSwitcher } from './components/ViewSwitcher';
 import { FilterBar } from './components/FilterBar';
@@ -31,11 +33,14 @@ import { SyncNotification } from './components/SyncNotification';
 import { GuestPhotoView } from './components/GuestPhotoView';
 import { RundownView } from './components/RundownView';
 import { LogisticsView } from './components/LogisticsView';
+import { MoodboardView } from './components/MoodboardView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 const PHOTO_STORAGE = 'wedding_photo_list_v4_clean';
 const RUNDOWN_STORAGE = 'wedding_rundown_v5_live';
 const LOGISTICS_STORAGE = 'wedding_logistics_v1';
+const MOODBOARD_STORAGE = 'wedding_moodboard_items_v1';
+const MOODBOARD_CATEGORIES_STORAGE = 'wedding_moodboard_categories_v1';
 
 const loadStorage = (key, fallback) => {
   try {
@@ -92,6 +97,8 @@ export default function App() {
   const [photoList, setPhotoList] = useState(() => loadStorage(PHOTO_STORAGE, INITIAL_PHOTO_LIST));
   const [rundownList, setRundownList] = useState(() => loadStorage(RUNDOWN_STORAGE, INITIAL_RUNDOWN));
   const [logisticsList, setLogisticsList] = useState(() => loadStorage(LOGISTICS_STORAGE, INITIAL_LOGISTICS_LIST));
+  const [moodboardItems, setMoodboardItems] = useState(() => loadStorage(MOODBOARD_STORAGE, INITIAL_MOODBOARD_ITEMS));
+  const [moodboardCategories, setMoodboardCategories] = useState(() => loadStorage(MOODBOARD_CATEGORIES_STORAGE, DEFAULT_MOODBOARD_CATEGORIES));
 
   // Realtime Live Sync for Rundown & Photos from Neon Database
   useEffect(() => {
@@ -173,6 +180,22 @@ export default function App() {
           }
         } catch {}
       }
+      if (e.key === MOODBOARD_STORAGE && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMoodboardItems(parsed);
+          }
+        } catch {}
+      }
+      if (e.key === MOODBOARD_CATEGORIES_STORAGE && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMoodboardCategories(parsed);
+          }
+        } catch {}
+      }
     };
     window.addEventListener('storage', handleStorage);
 
@@ -210,6 +233,22 @@ export default function App() {
     }
   }, [logisticsList]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(MOODBOARD_STORAGE, JSON.stringify(moodboardItems));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [moodboardItems]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MOODBOARD_CATEGORIES_STORAGE, JSON.stringify(moodboardCategories));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [moodboardCategories]);
+
   const handlePhotoChange = (newList) => {
     setPhotoList(newList);
     fetch('/api/photos', {
@@ -235,6 +274,19 @@ export default function App() {
   const handleResetLogistics = () => {
     setLogisticsList(INITIAL_LOGISTICS_LIST);
     setSyncStatus({ type: 'success', message: 'Daftar logistik dikembalikan ke bawaan template!' });
+  };
+
+  const handleMoodboardItemsChange = (newList) => {
+    setMoodboardItems(newList);
+  };
+
+  const handleMoodboardCategoriesChange = (newList) => {
+    setMoodboardCategories(newList);
+  };
+
+  const handleResetMoodboardCategories = () => {
+    setMoodboardCategories(DEFAULT_MOODBOARD_CATEGORIES);
+    setSyncStatus({ type: 'success', message: 'Kategori moodboard dikembalikan ke bawaan template!' });
   };
 
   // Filtered tasks for Checklist module
@@ -296,7 +348,10 @@ export default function App() {
       targetDate: countdown.targetDate,
       tasks,
       photoList,
-      rundownList
+      rundownList,
+      logisticsList,
+      moodboardItems,
+      moodboardCategories
     };
     const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -377,8 +432,18 @@ export default function App() {
       badge: `${logisticsList.filter(i => i.status === 'Siap').length}/${logisticsList.length}`,
       color: 'text-amber-600',
       bg: 'bg-amber-100 text-amber-800'
+    },
+    {
+      id: 'moodboard',
+      label: 'Moodboard & Visual',
+      shortLabel: 'Moodboard',
+      desc: 'Inspirasi visual tema, dekorasi, busana & foto',
+      icon: Palette,
+      badge: moodboardItems.length,
+      color: 'text-fuchsia-600',
+      bg: 'bg-fuchsia-100 text-fuchsia-800'
     }
-  ], [stats.overallProgress, tasks.length, photoList.length, rundownList.length, logisticsList]);
+  ], [stats.overallProgress, tasks.length, photoList.length, rundownList.length, logisticsList, moodboardItems.length]);
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#2D251E] flex flex-col">
@@ -510,7 +575,7 @@ export default function App() {
             />
 
             {/* Quick Navigation Cards to other sheets with bright gradient accents */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 pt-2">
               <button
                 type="button"
                 onClick={() => setActiveModule('checklist')}
@@ -576,6 +641,23 @@ export default function App() {
                 </p>
                 <div className="mt-3.5 text-xs font-bold text-amber-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                   Cek barang ({logisticsList.filter(i => i.status === 'Siap').length}/{logisticsList.length} siap) <ArrowRight size={13} />
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveModule('moodboard')}
+                className="nude-card p-5 rounded-3xl text-left bg-gradient-to-br from-white via-nude-50 to-fuchsia-50/40 hover:border-fuchsia-300 transition group shadow-nude-soft"
+              >
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-fuchsia-500 via-pink-500 to-rose-500 text-white flex items-center justify-center mb-3 shadow-xs">
+                  <Palette size={20} />
+                </div>
+                <h3 className="text-sm font-bold text-stone-900">Moodboard &amp; Visual</h3>
+                <p className="text-xs text-stone-500 mt-1">
+                  Koleksi inspirasi tema dekorasi, busana, makeup, bunga &amp; dokumentasi.
+                </p>
+                <div className="mt-3.5 text-xs font-bold text-fuchsia-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  Lihat inspirasi ({moodboardItems.length} foto) <ArrowRight size={13} />
                 </div>
               </button>
             </div>
@@ -683,6 +765,17 @@ export default function App() {
             items={logisticsList}
             onChange={handleLogisticsChange}
             onResetToDefault={handleResetLogistics}
+          />
+        )}
+
+        {/* Module 6: Moodboard & Visual */}
+        {activeModule === 'moodboard' && (
+          <MoodboardView
+            items={moodboardItems}
+            categories={moodboardCategories}
+            onChangeItems={handleMoodboardItemsChange}
+            onChangeCategories={handleMoodboardCategoriesChange}
+            onResetToDefault={handleResetMoodboardCategories}
           />
         )}
           </div>
