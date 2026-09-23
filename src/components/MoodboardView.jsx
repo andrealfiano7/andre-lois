@@ -24,10 +24,14 @@ import {
   Grid,
   Filter,
   SlidersHorizontal,
-  Bookmark
+  Bookmark,
+  Play,
+  Video,
+  Film
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { COLOR_PRESETS, DEFAULT_MOODBOARD_CATEGORIES } from '../data/initialMoodboard';
+import { COLOR_PRESETS, DEFAULT_MOODBOARD_CATEGORIES, UNIFIED_SUB_CATEGORIES } from '../data/initialMoodboard';
+import { parseVideoUrl, isVideoUrl } from '../utils/videoHelper';
 
 // Helper to compress local image files via Canvas
 function compressImageFile(file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) {
@@ -90,8 +94,10 @@ export function MoodboardView({
   const [formData, setFormData] = useState({
     title: '',
     categoryId: 'dekorasi',
-    subCategoryId: 'altar',
+    subCategoryId: 'before-wedding',
     imageUrl: '',
+    videoUrl: '',
+    mediaType: 'image',
     notes: '',
     source: ''
   });
@@ -118,36 +124,84 @@ export function MoodboardView({
   const [subCatFormLabel, setSubCatFormLabel] = useState('');
   const [isAddingSubCat, setIsAddingSubCat] = useState(false);
 
-  // Backward compatibility normalization for categories
+  // Mapping old subcategories to unified subcategories
+  const OLD_SUB_MAP = useMemo(() => ({
+    // Holy Matrimony
+    'altar': 'holy-matrimony',
+    'gaun-pemberkatan': 'holy-matrimony',
+    'mua-pemberkatan': 'holy-matrimony',
+    'handbouquet': 'holy-matrimony',
+    'prosesi': 'holy-matrimony',
+    'holy-matrimony': 'holy-matrimony',
+
+    // Reception
+    'pelaminan': 'reception',
+    'lighting': 'reception',
+    'gaun-resepsi': 'reception',
+    'mua-resepsi': 'reception',
+    'pelaminan-pose': 'reception',
+    'cinematic': 'reception',
+    'reception': 'reception',
+
+    // Before Wedding
+    'flatlay': 'before-wedding',
+    'jas-pria': 'before-wedding',
+    'hairdo': 'before-wedding',
+    'boutonniere': 'before-wedding',
+    'before-wedding': 'before-wedding',
+
+    // After Party & General
+    'foyer': 'after-party',
+    'keluarga-bridesmaids': 'after-party',
+    'mua-keluarga': 'after-party',
+    'corsage': 'after-party',
+    'bunga-mobil': 'after-party',
+    'undangan-fisik': 'after-party',
+    'undangan-digital': 'after-party',
+    'souvenir': 'after-party',
+    'after-party': 'after-party'
+  }), []);
+
+  // Unified normalization for categories: all categories share identical sub-categories
   const safeCategories = useMemo(() => {
     const raw = Array.isArray(categories) && categories.length > 0 ? categories : DEFAULT_MOODBOARD_CATEGORIES;
     return raw.map(cat => {
       const def = DEFAULT_MOODBOARD_CATEGORIES.find(d => d.id === cat.id);
-      const subCats = Array.isArray(cat.subCategories) && cat.subCategories.length > 0
-        ? cat.subCategories
-        : (def?.subCategories || [{ id: 'utama', label: 'Inspirasi Utama' }]);
+      const customSubs = (cat.subCategories || []).filter(
+        s => !UNIFIED_SUB_CATEGORIES.some(u => u.id === s.id) && !OLD_SUB_MAP[s.id]
+      );
+
       return {
         ...cat,
         desc: cat.desc || def?.desc || `Koleksi inspirasi dan konsep visual untuk ${cat.label}`,
-        subCategories: subCats
+        subCategories: [...UNIFIED_SUB_CATEGORIES, ...customSubs]
       };
     });
-  }, [categories]);
+  }, [categories, OLD_SUB_MAP]);
 
-  // Backward compatibility normalization for items
+  // Backward compatibility normalization for items (including video detection & subcategory mapping)
   const safeItems = useMemo(() => {
     const raw = Array.isArray(items) ? items : [];
     return raw.map(item => {
-      if (!item.subCategoryId) {
-        const cat = safeCategories.find(c => c.id === item.categoryId);
-        return {
-          ...item,
-          subCategoryId: cat?.subCategories?.[0]?.id || 'utama'
-        };
+      let subId = item.subCategoryId;
+      if (OLD_SUB_MAP[subId]) {
+        subId = OLD_SUB_MAP[subId];
       }
-      return item;
+      if (!subId) {
+        subId = 'before-wedding';
+      }
+
+      const videoInfo = item.videoUrl ? parseVideoUrl(item.videoUrl) : parseVideoUrl(item.imageUrl);
+      const isVideo = item.mediaType === 'video' || Boolean(videoInfo) || Boolean(item.videoUrl);
+
+      return {
+        ...item,
+        subCategoryId: subId,
+        mediaType: isVideo ? 'video' : 'image',
+        videoUrl: item.videoUrl || (videoInfo ? videoInfo.originalUrl : '')
+      };
     });
-  }, [items, safeCategories]);
+  }, [items, OLD_SUB_MAP]);
 
   // Current active category object
   const currentCategoryObj = useMemo(() => {
@@ -166,9 +220,11 @@ export function MoodboardView({
   };
 
   const getSubCategoryLabel = (catId, subCatId) => {
+    const unified = UNIFIED_SUB_CATEGORIES.find(s => s.id === subCatId);
+    if (unified) return unified.label;
     const cat = getCategory(catId);
     const sub = cat.subCategories?.find(s => s.id === subCatId);
-    return sub?.label || 'Inspirasi Utama';
+    return sub?.label || 'Before Wedding';
   };
 
   const getCategoryBadgeClass = (catId) => {
@@ -222,13 +278,15 @@ export function MoodboardView({
 
     const defaultCat = targetCatId || activeCategoryView || safeCategories[0]?.id || 'dekorasi';
     const catObj = safeCategories.find(c => c.id === defaultCat) || safeCategories[0];
-    const defaultSub = targetSubCatId || (activeSubCategory !== 'all' ? activeSubCategory : (catObj?.subCategories?.[0]?.id || 'utama'));
+    const defaultSub = targetSubCatId || (activeSubCategory !== 'all' ? activeSubCategory : (catObj?.subCategories?.[0]?.id || 'before-wedding'));
 
     setFormData({
       title: '',
       categoryId: defaultCat,
       subCategoryId: defaultSub,
       imageUrl: '',
+      videoUrl: '',
+      mediaType: 'image',
       notes: '',
       source: ''
     });
@@ -240,15 +298,22 @@ export function MoodboardView({
     setEditingItem(item);
     setIsCreatingCustomSubCat(false);
     setCustomSubCatName('');
-    setSelectedImages(item.imageUrl ? [item.imageUrl] : []);
+    setSelectedImages(item.imageUrl ? [{
+      imageUrl: item.imageUrl,
+      videoUrl: item.videoUrl || '',
+      mediaType: item.mediaType || (item.videoUrl ? 'video' : 'image')
+    }] : []);
     setInputUrl('');
     setCompressProgress(null);
 
+    const vInfo = item.videoUrl ? parseVideoUrl(item.videoUrl) : parseVideoUrl(item.imageUrl);
     setFormData({
       title: item.title || '',
       categoryId: item.categoryId || safeCategories[0]?.id || 'dekorasi',
-      subCategoryId: item.subCategoryId || 'utama',
+      subCategoryId: item.subCategoryId || 'before-wedding',
       imageUrl: item.imageUrl || '',
+      videoUrl: item.videoUrl || (vInfo ? vInfo.originalUrl : ''),
+      mediaType: item.mediaType || (vInfo || item.videoUrl ? 'video' : 'image'),
       notes: item.notes || '',
       source: item.source || ''
     });
@@ -275,20 +340,26 @@ export function MoodboardView({
       for (let i = 0; i < validFiles.length; i++) {
         setCompressProgress({ current: i + 1, total: validFiles.length });
         const compressedDataUrl = await compressImageFile(validFiles[i]);
-        compressedBatch.push(compressedDataUrl);
+        compressedBatch.push({
+          imageUrl: compressedDataUrl,
+          videoUrl: '',
+          mediaType: 'image'
+        });
       }
 
       if (editingItem) {
         setSelectedImages([compressedBatch[0]]);
         setFormData(prev => ({
           ...prev,
-          imageUrl: compressedBatch[0]
+          imageUrl: compressedBatch[0].imageUrl,
+          videoUrl: '',
+          mediaType: 'image'
         }));
       } else {
         setSelectedImages(prev => [...prev, ...compressedBatch]);
         setFormData(prev => ({
           ...prev,
-          imageUrl: prev.imageUrl || compressedBatch[0]
+          imageUrl: prev.imageUrl || compressedBatch[0].imageUrl
         }));
       }
     } catch (err) {
@@ -301,14 +372,34 @@ export function MoodboardView({
     }
   };
 
-  // Add Image via External URL
+  // Add Media via External URL (Supports Images and YouTube/Vimeo/MP4 Videos)
   const handleAddUrlImage = () => {
-    if (!inputUrl.trim()) return;
+    const rawUrl = inputUrl.trim();
+    if (!rawUrl) return;
+
+    const videoInfo = parseVideoUrl(rawUrl);
+    const mediaObj = videoInfo ? {
+      imageUrl: videoInfo.thumbnailUrl || 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1200&q=80',
+      videoUrl: rawUrl,
+      mediaType: 'video',
+      platform: videoInfo.platform
+    } : {
+      imageUrl: rawUrl,
+      videoUrl: '',
+      mediaType: 'image',
+      platform: 'Image'
+    };
+
     if (editingItem) {
-      setSelectedImages([inputUrl.trim()]);
-      setFormData(prev => ({ ...prev, imageUrl: inputUrl.trim() }));
+      setSelectedImages([mediaObj]);
+      setFormData(prev => ({
+        ...prev,
+        imageUrl: mediaObj.imageUrl,
+        videoUrl: mediaObj.videoUrl,
+        mediaType: mediaObj.mediaType
+      }));
     } else {
-      setSelectedImages(prev => [...prev, inputUrl.trim()]);
+      setSelectedImages(prev => [...prev, mediaObj]);
     }
     setInputUrl('');
   };
@@ -322,20 +413,48 @@ export function MoodboardView({
   const handleSaveItem = (e) => {
     e.preventDefault();
 
-    let imagesToSave = [...selectedImages];
-    if (inputUrl.trim() && !imagesToSave.includes(inputUrl.trim())) {
-      imagesToSave.push(inputUrl.trim());
-    }
-    if (imagesToSave.length === 0 && formData.imageUrl.trim()) {
-      imagesToSave.push(formData.imageUrl.trim());
+    let mediaList = selectedImages.map(img => 
+      typeof img === 'string' ? { imageUrl: img, videoUrl: '', mediaType: 'image' } : img
+    );
+
+    if (inputUrl.trim()) {
+      const rawUrl = inputUrl.trim();
+      const vInfo = parseVideoUrl(rawUrl);
+      mediaList.push(vInfo ? {
+        imageUrl: vInfo.thumbnailUrl || 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1200&q=80',
+        videoUrl: rawUrl,
+        mediaType: 'video',
+        platform: vInfo.platform
+      } : {
+        imageUrl: rawUrl,
+        videoUrl: '',
+        mediaType: 'image',
+        platform: 'Image'
+      });
     }
 
-    if (imagesToSave.length === 0) {
-      alert('Harap pilih minimal 1 foto atau masukkan URL gambar.');
+    if (mediaList.length === 0 && (formData.imageUrl.trim() || formData.videoUrl.trim())) {
+      const rawV = formData.videoUrl.trim();
+      const rawI = formData.imageUrl.trim();
+      const vInfo = parseVideoUrl(rawV || rawI);
+      mediaList.push(vInfo ? {
+        imageUrl: vInfo.thumbnailUrl || rawI || 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1200&q=80',
+        videoUrl: vInfo.originalUrl,
+        mediaType: 'video',
+        platform: vInfo.platform
+      } : {
+        imageUrl: rawI,
+        videoUrl: '',
+        mediaType: 'image'
+      });
+    }
+
+    if (mediaList.length === 0) {
+      alert('Harap pilih minimal 1 foto atau masukkan URL gambar / video.');
       return;
     }
 
-    let finalSubCatId = formData.subCategoryId;
+    let finalSubCatId = formData.subCategoryId || 'before-wedding';
 
     // If user created a custom sub-category on the fly
     if (isCreatingCustomSubCat && customSubCatName.trim()) {
@@ -343,11 +462,9 @@ export function MoodboardView({
       const newSub = { id: newSubId, label: customSubCatName.trim() };
       
       const updatedCategories = safeCategories.map(c => {
-        if (c.id === formData.categoryId) {
-          const currentSubs = c.subCategories || [];
-          if (!currentSubs.some(s => s.id === newSubId)) {
-            return { ...c, subCategories: [...currentSubs, newSub] };
-          }
+        const currentSubs = c.subCategories || [];
+        if (!currentSubs.some(s => s.id === newSubId)) {
+          return { ...c, subCategories: [...currentSubs, newSub] };
         }
         return c;
       });
@@ -356,6 +473,7 @@ export function MoodboardView({
     }
 
     if (editingItem) {
+      const targetMedia = mediaList[0];
       const updated = safeItems.map(item => {
         if (item.id === editingItem.id) {
           return {
@@ -363,7 +481,9 @@ export function MoodboardView({
             ...formData,
             title: formData.title.trim(),
             notes: (formData.notes || '').trim(),
-            imageUrl: imagesToSave[0],
+            imageUrl: targetMedia.imageUrl,
+            videoUrl: targetMedia.videoUrl || '',
+            mediaType: targetMedia.mediaType || (targetMedia.videoUrl ? 'video' : 'image'),
             subCategoryId: finalSubCatId
           };
         }
@@ -373,14 +493,16 @@ export function MoodboardView({
     } else {
       const timestamp = Date.now();
       const baseTitle = formData.title.trim();
-      const newItems = imagesToSave.map((imgUrl, index) => ({
+      const newItems = mediaList.map((m, index) => ({
         id: `mb-${timestamp}-${index}-${Math.random().toString(36).substring(2, 6)}`,
-        title: baseTitle ? (imagesToSave.length > 1 ? `${baseTitle} #${index + 1}` : baseTitle) : '',
+        title: baseTitle ? (mediaList.length > 1 ? `${baseTitle} #${index + 1}` : baseTitle) : '',
         categoryId: formData.categoryId,
         subCategoryId: finalSubCatId,
-        imageUrl: imgUrl,
+        imageUrl: m.imageUrl,
+        videoUrl: m.videoUrl || '',
+        mediaType: m.mediaType || (m.videoUrl ? 'video' : 'image'),
         notes: (formData.notes || '').trim(),
-        source: formData.source || 'Pinterest',
+        source: formData.source || (m.mediaType === 'video' ? (m.platform || 'Video') : 'Pinterest'),
         createdAt: new Date().toISOString().split('T')[0]
       }));
       onChangeItems?.([...newItems, ...safeItems]);
@@ -487,40 +609,33 @@ export function MoodboardView({
     }
   };
 
-  // Sub-Category Manager: Add or Edit Sub-Category
+  // Sub-Category Manager: Add or Edit Sub-Category (Synchronized across all categories)
   const handleSaveSubCategory = (e) => {
     e.preventDefault();
-    if (!subCatFormLabel.trim() || !activeCategoryView) return;
+    if (!subCatFormLabel.trim()) return;
 
     if (editingSubCatId) {
-      const updated = safeCategories.map(c => {
-        if (c.id === activeCategoryView) {
-          return {
-            ...c,
-            subCategories: (c.subCategories || []).map(s => {
-              if (s.id === editingSubCatId) {
-                return { ...s, label: subCatFormLabel.trim() };
-              }
-              return s;
-            })
-          };
-        }
-        return c;
-      });
+      const updated = safeCategories.map(c => ({
+        ...c,
+        subCategories: (c.subCategories || []).map(s => {
+          if (s.id === editingSubCatId) {
+            return { ...s, label: subCatFormLabel.trim() };
+          }
+          return s;
+        })
+      }));
       onChangeCategories?.(updated);
       setEditingSubCatId(null);
     } else {
       const newSubId = subCatFormLabel.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 20) || `sub-${Date.now()}`;
+      const sampleSubs = safeCategories[0]?.subCategories || [];
+      const finalId = sampleSubs.some(s => s.id === newSubId) ? `${newSubId}-${Date.now().toString().slice(-4)}` : newSubId;
       const updated = safeCategories.map(c => {
-        if (c.id === activeCategoryView) {
-          const currentSubs = c.subCategories || [];
-          const finalId = currentSubs.some(s => s.id === newSubId) ? `${newSubId}-${Date.now().toString().slice(-4)}` : newSubId;
-          return {
-            ...c,
-            subCategories: [...currentSubs, { id: finalId, label: subCatFormLabel.trim() }]
-          };
-        }
-        return c;
+        const currentSubs = c.subCategories || [];
+        return {
+          ...c,
+          subCategories: [...currentSubs, { id: finalId, label: subCatFormLabel.trim() }]
+        };
       });
       onChangeCategories?.(updated);
       setIsAddingSubCat(false);
@@ -528,42 +643,36 @@ export function MoodboardView({
     setSubCatFormLabel('');
   };
 
-  // Sub-Category Manager: Delete Sub-Category
+  // Sub-Category Manager: Delete Sub-Category (Synchronized across all categories)
   const handleDeleteSubCategory = (subCatId, subCatLabel) => {
-    if (!currentCategoryObj) return;
-    const currentSubs = currentCategoryObj.subCategories || [];
-    if (currentSubs.length <= 1) {
-      alert('Minimal harus ada satu sub-kategori di dalam kategori ini.');
+    const sampleSubs = currentCategoryObj?.subCategories || safeCategories[0]?.subCategories || [];
+    if (sampleSubs.length <= 1) {
+      alert('Minimal harus ada satu sub-kategori.');
       return;
     }
 
-    const itemsInSub = safeItems.filter(i => i.categoryId === activeCategoryView && i.subCategoryId === subCatId);
-    let confirmMsg = `Hapus sub-kategori "${subCatLabel}"?`;
+    const itemsInSub = safeItems.filter(i => i.subCategoryId === subCatId);
+    let confirmMsg = `Hapus sub-kategori "${subCatLabel}" dari semua kategori?`;
     if (itemsInSub.length > 0) {
-      const fallbackSub = currentSubs.find(s => s.id !== subCatId);
+      const fallbackSub = sampleSubs.find(s => s.id !== subCatId);
       confirmMsg += `\n\nPerhatian: ${itemsInSub.length} foto dalam sub-kategori ini akan otomatis dipindahkan ke sub-kategori "${fallbackSub?.label}".`;
     }
 
     if (window.confirm(confirmMsg)) {
-      const fallbackSub = currentSubs.find(s => s.id !== subCatId);
+      const fallbackSub = sampleSubs.find(s => s.id !== subCatId);
       if (itemsInSub.length > 0 && fallbackSub) {
         const updatedItems = safeItems.map(item => {
-          if (item.categoryId === activeCategoryView && item.subCategoryId === subCatId) {
+          if (item.subCategoryId === subCatId) {
             return { ...item, subCategoryId: fallbackSub.id };
           }
           return item;
         });
         onChangeItems?.(updatedItems);
       }
-      const updatedCategories = safeCategories.map(c => {
-        if (c.id === activeCategoryView) {
-          return {
-            ...c,
-            subCategories: (c.subCategories || []).filter(s => s.id !== subCatId)
-          };
-        }
-        return c;
-      });
+      const updatedCategories = safeCategories.map(c => ({
+        ...c,
+        subCategories: (c.subCategories || []).filter(s => s.id !== subCatId)
+      }));
       onChangeCategories?.(updatedCategories);
       if (activeSubCategory === subCatId) {
         setActiveSubCategory('all');
@@ -750,7 +859,7 @@ export function MoodboardView({
                             {sub.label}
                           </h3>
                           <span className="shrink-0 whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 text-stone-700 border border-stone-200">
-                            {subPhotos.length} foto
+                            {subPhotos.length} media
                           </span>
                         </div>
                       </div>
@@ -759,11 +868,11 @@ export function MoodboardView({
                         type="button"
                         onClick={() => handleOpenAdd(currentCategoryObj.id, sub.id)}
                         className="shrink-0 whitespace-nowrap px-2.5 py-1 rounded-xl text-xs font-bold text-stone-700 hover:text-stone-900 hover:bg-stone-100 bg-white border border-stone-200/90 transition flex items-center gap-1 cursor-pointer shadow-2xs mt-0.5 sm:mt-0"
-                        title={`Tambah foto ke ${sub.label}`}
+                        title={`Tambah inspirasi ke ${sub.label}`}
                       >
                         <Plus size={13} className="text-stone-500" />
-                        <span className="hidden sm:inline">Tambah Foto</span>
-                        <span className="sm:hidden text-[11px]">Foto</span>
+                        <span className="hidden sm:inline">Tambah Inspirasi</span>
+                        <span className="sm:hidden text-[11px]">Tambah</span>
                       </button>
                     </div>
 
@@ -790,10 +899,10 @@ export function MoodboardView({
                           <Plus size={16} />
                         </div>
                         <p className="text-xs font-bold text-stone-700">
-                          Belum ada foto di "{sub.label}"
+                          Belum ada inspirasi di "{sub.label}"
                         </p>
                         <p className="text-[11px] text-stone-400 mt-0.5">
-                          Klik untuk mengunggah foto inspirasi untuk sub-kategori ini.
+                          Klik untuk mengunggah foto atau tautan video inspirasi untuk sub-kategori ini.
                         </p>
                       </div>
                     )}
@@ -809,9 +918,9 @@ export function MoodboardView({
                   <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center mx-auto mb-3">
                     <ImageIcon size={28} />
                   </div>
-                  <h3 className="text-sm font-bold text-stone-800">Tidak ada foto ditemukan</h3>
+                  <h3 className="text-sm font-bold text-stone-800">Tidak ada inspirasi ditemukan</h3>
                   <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
-                    {searchQuery ? `Tidak ada hasil untuk kata kunci "${searchQuery}".` : 'Belum ada foto yang diunggah pada sub-kategori ini.'}
+                    {searchQuery ? `Tidak ada hasil untuk kata kunci "${searchQuery}".` : 'Belum ada foto atau video yang diunggah pada sub-kategori ini.'}
                   </p>
                   <button
                     type="button"
@@ -819,7 +928,7 @@ export function MoodboardView({
                     className="mt-4 px-4 py-2 rounded-xl text-xs font-bold bg-stone-900 text-white hover:bg-stone-800 transition inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <Upload size={14} />
-                    <span>Upload Foto Sekarang</span>
+                    <span>Upload Foto / Video</span>
                   </button>
                 </div>
               ) : (
@@ -1262,7 +1371,7 @@ export function MoodboardView({
                       <div className="flex items-center gap-1.5">
                         <input
                           type="url"
-                          placeholder="Atau tempel tautan URL gambar (https://...)"
+                          placeholder="Atau tempel tautan URL gambar / video (YouTube, Vimeo, MP4)..."
                           value={inputUrl}
                           onChange={(e) => setInputUrl(e.target.value)}
                           onKeyDown={(e) => {
@@ -1284,12 +1393,12 @@ export function MoodboardView({
                       </div>
                     </div>
 
-                    {/* Image Preview Grid (Multiple Thumbnails) */}
+                    {/* Media Preview Grid (Multiple Thumbnails with Video support) */}
                     {selectedImages.length > 0 && (
                       <div className="mt-2.5 p-2.5 bg-stone-50 rounded-2xl border border-stone-200/90">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-[11px] font-extrabold text-stone-700">
-                            {selectedImages.length} Foto Siap Diupload:
+                            {selectedImages.length} Media Siap Diupload:
                           </span>
                           <span className="text-[10px] text-stone-400">
                             Klik silang (x) untuk membatalkan
@@ -1297,29 +1406,40 @@ export function MoodboardView({
                         </div>
 
                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-1">
-                          {selectedImages.map((imgUrl, idx) => (
-                            <div 
-                              key={idx} 
-                              className="relative aspect-square rounded-xl overflow-hidden border border-stone-200 bg-white group shadow-2xs"
-                            >
-                              <img 
-                                src={imgUrl} 
-                                alt={`Foto ${idx + 1}`} 
-                                className="w-full h-full object-cover"
-                              />
-                              <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] font-extrabold px-1.5 py-0.2 rounded-md backdrop-blur-xs">
-                                #{idx + 1}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveSelectedImage(idx)}
-                                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 hover:bg-rose-600 text-white flex items-center justify-center transition shadow-xs cursor-pointer"
-                                title="Hapus foto ini"
+                          {selectedImages.map((media, idx) => {
+                            const imgUrl = typeof media === 'string' ? media : media.imageUrl;
+                            const isVid = typeof media === 'object' && media.mediaType === 'video';
+
+                            return (
+                              <div 
+                                key={idx} 
+                                className="relative aspect-square rounded-xl overflow-hidden border border-stone-200 bg-white group shadow-2xs"
                               >
-                                <X size={11} />
-                              </button>
-                            </div>
-                          ))}
+                                <img 
+                                  src={imgUrl} 
+                                  alt={`Media ${idx + 1}`} 
+                                  className="w-full h-full object-cover"
+                                />
+                                {isVid && (
+                                  <span className="absolute top-1 left-1 bg-rose-600 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-0.5 shadow-xs">
+                                    <Play size={8} className="fill-white" />
+                                    Video
+                                  </span>
+                                )}
+                                <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] font-extrabold px-1.5 py-0.2 rounded-md backdrop-blur-xs">
+                                  #{idx + 1}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSelectedImage(idx)}
+                                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 hover:bg-rose-600 text-white flex items-center justify-center transition shadow-xs cursor-pointer"
+                                  title="Hapus media ini"
+                                >
+                                  <X size={11} />
+                                </button>
+                              </div>
+                            );
+                          })}
 
                           {!editingItem && (
                             <label
@@ -1407,17 +1527,50 @@ export function MoodboardView({
                 transition={{ duration: 0.2 }}
                 className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[92vh] border border-white/20"
               >
-                {/* Image Section */}
+                {/* Media Section: Video Player or Image */}
                 <div className="md:w-3/5 bg-black flex items-center justify-center relative min-h-[300px] md:min-h-[500px]">
-                  <img
-                    src={detailItem.imageUrl}
-                    alt={detailItem.title}
-                    className="w-full h-full max-h-[500px] md:max-h-[600px] object-contain"
-                  />
+                  {(() => {
+                    const videoInfo = detailItem.videoUrl ? parseVideoUrl(detailItem.videoUrl) : parseVideoUrl(detailItem.imageUrl);
+                    const isVideo = detailItem.mediaType === 'video' || Boolean(videoInfo);
+
+                    if (isVideo && videoInfo?.embedUrl) {
+                      return (
+                        <div className="w-full h-full min-h-[300px] md:min-h-[500px] aspect-video flex items-center justify-center">
+                          <iframe
+                            src={videoInfo.embedUrl}
+                            title={detailItem.title || 'Video Player'}
+                            className="w-full h-full min-h-[300px] md:min-h-[500px] border-0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                          />
+                        </div>
+                      );
+                    }
+
+                    if (isVideo && (detailItem.videoUrl || detailItem.imageUrl)) {
+                      return (
+                        <video
+                          src={detailItem.videoUrl || detailItem.imageUrl}
+                          controls
+                          autoPlay
+                          playsInline
+                          className="w-full h-full max-h-[500px] md:max-h-[600px] object-contain"
+                        />
+                      );
+                    }
+
+                    return (
+                      <img
+                        src={detailItem.imageUrl}
+                        alt={detailItem.title}
+                        className="w-full h-full max-h-[500px] md:max-h-[600px] object-contain"
+                      />
+                    );
+                  })()}
                   <button
                     type="button"
                     onClick={() => setDetailItem(null)}
-                    className="md:hidden absolute top-3 right-3 p-2 rounded-full bg-black/60 text-white hover:bg-black/90 transition"
+                    className="md:hidden absolute top-3 right-3 p-2 rounded-full bg-black/60 text-white hover:bg-black/90 transition z-10 cursor-pointer"
                   >
                     <X size={18} />
                   </button>
@@ -1439,7 +1592,7 @@ export function MoodboardView({
                       </button>
                     </div>
 
-                    {/* Badges: Category & Sub-Category */}
+                    {/* Badges: Category & Sub-Category & Media Type */}
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold ${getCategoryBadgeClass(detailItem.categoryId)}`}>
                         {getCategory(detailItem.categoryId)?.label}
@@ -1447,6 +1600,12 @@ export function MoodboardView({
                       <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white text-stone-800 border border-stone-200 shadow-2xs">
                         {getSubCategoryLabel(detailItem.categoryId, detailItem.subCategoryId)}
                       </span>
+                      {(detailItem.mediaType === 'video' || parseVideoUrl(detailItem.videoUrl || detailItem.imageUrl)) && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-600 text-white flex items-center gap-1 shadow-2xs">
+                          <Play size={10} className="fill-white" />
+                          <span>Video</span>
+                        </span>
+                      )}
                     </div>
 
                     {/* Title */}
@@ -1482,14 +1641,35 @@ export function MoodboardView({
 
                   {/* Actions Bar */}
                   <div className="pt-4 border-t border-stone-200 mt-5 space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadImage(detailItem)}
-                      className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-stone-900 hover:bg-stone-800 text-white transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-                    >
-                      <Download size={14} />
-                      <span>Unduh Gambar</span>
-                    </button>
+                    {(() => {
+                      const videoInfo = detailItem.videoUrl ? parseVideoUrl(detailItem.videoUrl) : parseVideoUrl(detailItem.imageUrl);
+                      const isVideo = detailItem.mediaType === 'video' || Boolean(videoInfo);
+
+                      if (isVideo) {
+                        return (
+                          <a
+                            href={detailItem.videoUrl || detailItem.imageUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-amber-800 hover:bg-amber-900 text-white transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                          >
+                            <ExternalLink size={14} />
+                            <span>Buka Video di {videoInfo?.platform || 'Platform Asli'}</span>
+                          </a>
+                        );
+                      }
+
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadImage(detailItem)}
+                          className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-stone-900 hover:bg-stone-800 text-white transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                        >
+                          <Download size={14} />
+                          <span>Unduh Gambar</span>
+                        </button>
+                      );
+                    })()}
 
                     <div className="grid grid-cols-2 gap-2">
                       <button
@@ -1541,10 +1721,10 @@ export function MoodboardView({
                     <Layers size={18} className="text-amber-800" />
                     <div>
                       <h3 className="text-sm font-bold text-stone-900">
-                        Sub-Kategori: {currentCategoryObj.label}
+                        Kelola Sub-Kategori Moodboard
                       </h3>
                       <p className="text-[11px] text-stone-500">
-                        Atur pembagian kelompok inspirasi di kategori ini
+                        Sub-kategori ini seragam &amp; berlaku untuk seluruh kategori moodboard
                       </p>
                     </div>
                   </div>
@@ -1572,7 +1752,7 @@ export function MoodboardView({
                       
                       <input
                         type="text"
-                        placeholder="Contoh: Altar, Pelaminan, Handbouquet..."
+                        placeholder="Contoh: Before Wedding, Holy Matrimony, Reception..."
                         value={subCatFormLabel}
                         onChange={(e) => setSubCatFormLabel(e.target.value)}
                         required
@@ -1626,6 +1806,7 @@ export function MoodboardView({
                     <div className="divide-y divide-stone-100 bg-[#FAF7F2] rounded-2xl border border-[#EADBCE]/80 overflow-hidden">
                       {(currentCategoryObj.subCategories || []).map(sub => {
                         const count = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === sub.id).length;
+                        const totalCount = safeItems.filter(i => i.subCategoryId === sub.id).length;
                         return (
                           <div 
                             key={sub.id}
@@ -1638,7 +1819,7 @@ export function MoodboardView({
                                   {sub.label}
                                 </p>
                                 <p className="text-[10px] text-stone-400">
-                                  {count} foto terdaftar
+                                  {count} foto di {currentCategoryObj.label} ({totalCount} total)
                                 </p>
                               </div>
                             </div>
@@ -1934,6 +2115,8 @@ export function MoodboardView({
 function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDelete }) {
   const hasTitle = Boolean(item.title && item.title.trim());
   const hasNotes = Boolean(item.notes && item.notes.trim());
+  const videoInfo = item.videoUrl ? parseVideoUrl(item.videoUrl) : parseVideoUrl(item.imageUrl);
+  const isVideo = item.mediaType === 'video' || Boolean(videoInfo);
 
   return (
     <motion.div
@@ -1955,10 +2138,19 @@ function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDel
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
 
+        {/* Video Center Play Indicator */}
+        {isVideo && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-black/60 backdrop-blur-xs text-white flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:bg-amber-600 transition-all duration-300">
+              <Play size={18} className="fill-white ml-0.5" />
+            </span>
+          </div>
+        )}
+
         {/* Hover overlay with detail icon */}
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-          <span className="w-9 h-9 rounded-full bg-white/90 text-stone-900 flex items-center justify-center shadow-xs">
-            <Eye size={16} />
+          <span className="w-9 h-9 rounded-full bg-white/95 text-stone-900 flex items-center justify-center shadow-md">
+            {isVideo ? <Play size={16} className="fill-stone-900 ml-0.5" /> : <Eye size={16} />}
           </span>
         </div>
 
@@ -1968,6 +2160,16 @@ function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDel
             {subCatLabel}
           </span>
         </div>
+
+        {/* Video Badge */}
+        {isVideo && (
+          <div className="absolute top-2.5 right-2.5">
+            <span className="px-2 py-0.5 rounded-lg text-[9px] font-extrabold bg-rose-600 text-white flex items-center gap-1 shadow-xs">
+              <Play size={8} className="fill-white" />
+              <span>Video</span>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Card Info: Only rendered if title or notes exist */}
