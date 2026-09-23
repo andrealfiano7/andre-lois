@@ -270,7 +270,13 @@ export default function App() {
           setMoodboardItems(prev => {
             const prevStr = JSON.stringify(prev);
             const nextStr = JSON.stringify(cleanData);
-            return prevStr !== nextStr ? cleanData : prev;
+            if (prevStr !== nextStr) {
+              try {
+                localStorage.setItem(MOODBOARD_STORAGE, JSON.stringify(cleanData));
+              } catch (e) {}
+              return cleanData;
+            }
+            return prev;
           });
         })
         .catch(() => {});
@@ -426,6 +432,11 @@ export default function App() {
 
   const handleMoodboardItemsChange = (newList) => {
     setMoodboardItems(newList);
+    try {
+      localStorage.setItem(MOODBOARD_STORAGE, JSON.stringify(newList));
+    } catch (e) {
+      console.error(e);
+    }
     // Return a Promise so callers (e.g. upload modal) can show a spinner
     // while the batch is actually synced to the Neon database.
     return fetch('/api/moodboard', {
@@ -486,6 +497,11 @@ export default function App() {
 
   const handleMoodboardCategoriesChange = (newList) => {
     setMoodboardCategories(newList);
+    try {
+      localStorage.setItem(MOODBOARD_CATEGORIES_STORAGE, JSON.stringify(newList));
+    } catch (e) {
+      console.error(e);
+    }
     fetch('/api/moodboard-categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -495,6 +511,11 @@ export default function App() {
 
   const handleResetMoodboardCategories = () => {
     setMoodboardCategories(DEFAULT_MOODBOARD_CATEGORIES);
+    try {
+      localStorage.setItem(MOODBOARD_CATEGORIES_STORAGE, JSON.stringify(DEFAULT_MOODBOARD_CATEGORIES));
+    } catch (e) {
+      console.error(e);
+    }
     fetch('/api/moodboard-categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

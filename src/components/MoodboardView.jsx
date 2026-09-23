@@ -28,7 +28,10 @@ import {
   Play,
   Video,
   Film,
-  AlertCircle
+  AlertCircle,
+  GripVertical,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { COLOR_PRESETS, DEFAULT_MOODBOARD_CATEGORIES } from '../data/initialMoodboard';
@@ -130,6 +133,9 @@ export function MoodboardView({
   const [editingSubCatId, setEditingSubCatId] = useState(null);
   const [subCatFormLabel, setSubCatFormLabel] = useState('');
   const [isAddingSubCat, setIsAddingSubCat] = useState(false);
+  const [draggedSubIndex, setDraggedSubIndex] = useState(null);
+  const [dragOverSubIndex, setDragOverSubIndex] = useState(null);
+  const isDraggingSubRef = useRef(false);
 
   // In-App Confirmation States (No window.confirm!)
   const [subCatToDelete, setSubCatToDelete] = useState(null);
@@ -157,9 +163,26 @@ export function MoodboardView({
     const raw = Array.isArray(categories) && categories.length > 0 ? categories : DEFAULT_MOODBOARD_CATEGORIES;
     return raw.map(cat => {
       const def = DEFAULT_MOODBOARD_CATEGORIES.find(d => d.id === cat.id);
-      let currentSubs = cat.subCategories;
-      if (!Array.isArray(currentSubs) || currentSubs.length === 0) {
-        currentSubs = def?.subCategories || [{ id: 'utama', label: 'Inspirasi Utama' }];
+      let currentSubs = Array.isArray(cat.subCategories) && cat.subCategories.length > 0
+        ? [...cat.subCategories]
+        : [...(def?.subCategories || [{ id: 'utama', label: 'Inspirasi Utama' }])];
+
+      // Ensure any subcategory that already has items in this category is recognized
+      if (Array.isArray(items)) {
+        items.forEach(it => {
+          if (it && it.categoryId === cat.id && it.subCategoryId) {
+            // Check if it's a legacy ID that should be remapped first
+            const catMap = CATEGORY_SUB_FALLBACK[cat.id];
+            const targetSubId = (catMap && catMap[it.subCategoryId]) ? catMap[it.subCategoryId] : it.subCategoryId;
+            if (!currentSubs.some(s => s.id === targetSubId)) {
+              const label = targetSubId
+                .split('-')
+                .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                .join(' ');
+              currentSubs.push({ id: targetSubId, label });
+            }
+          }
+        });
       }
 
       return {
@@ -168,7 +191,7 @@ export function MoodboardView({
         subCategories: currentSubs
       };
     });
-  }, [categories]);
+  }, [categories, items, CATEGORY_SUB_FALLBACK]);
 
   // Backward compatibility normalization for items (including video detection & category-specific subcategory mapping)
   const safeItems = useMemo(() => {
@@ -180,14 +203,10 @@ export function MoodboardView({
         subId = catMap[subId];
       }
 
-      // Find the category and its known subcategory IDs
-      const cat = safeCategories.find(c => c.id === item.categoryId);
-      const knownSubIds = cat?.subCategories?.map(s => s.id) || [];
-
-      // If subId is empty OR doesn't exist in the category's known subcategories,
-      // fall back to the first valid subcategory so the photo is never "orphaned" (invisible)
-      if (!subId || (knownSubIds.length > 0 && !knownSubIds.includes(subId))) {
-        subId = knownSubIds[0] || 'altar';
+      // Only fallback if subId is completely missing/empty
+      if (!subId) {
+        const cat = safeCategories.find(c => c.id === item.categoryId);
+        subId = cat?.subCategories?.[0]?.id || 'altar';
       }
 
       const videoInfo = item.videoUrl ? parseVideoUrl(item.videoUrl) : parseVideoUrl(item.imageUrl);
@@ -467,6 +486,7 @@ export function MoodboardView({
       const newSub = { id: newSubId, label: customSubCatName.trim() };
       
       const updatedCategories = safeCategories.map(c => {
+        if (c.id !== formData.categoryId) return c;
         const currentSubs = c.subCategories || [];
         if (!currentSubs.some(s => s.id === newSubId)) {
           return { ...c, subCategories: [...currentSubs, newSub] };
@@ -844,6 +864,35 @@ export function MoodboardView({
     setSubCatToDelete(null);
   };
 
+  // Sub-Category Manager: Reorder sub-categories inside current category
+  const handleReorderSubCategory = (fromIndex, toIndex) => {
+    if (!currentCategoryObj) return;
+    const currentSubs = [...(currentCategoryObj.subCategories || [])];
+    if (
+      fromIndex < 0 ||
+      fromIndex >= currentSubs.length ||
+      toIndex < 0 ||
+      toIndex >= currentSubs.length ||
+      fromIndex === toIndex
+    ) {
+      return;
+    }
+
+    const [moved] = currentSubs.splice(fromIndex, 1);
+    currentSubs.splice(toIndex, 0, moved);
+
+    const updatedCategories = safeCategories.map(c => {
+      if (c.id !== currentCategoryObj.id) return c;
+      return {
+        ...c,
+        subCategories: currentSubs
+      };
+    });
+
+    onChangeCategories?.(updatedCategories);
+    flashToast(`✓ Urutan sub-kategori diperbarui`, false, 2500);
+  };
+
   // Get cover image(s) for a category
   const getCategoryCovers = (catId) => {
     const catPhotos = safeItems.filter(i => i.categoryId === catId);
@@ -1018,20 +1067,76 @@ export function MoodboardView({
                 </span>
               </button>
 
-              {(currentCategoryObj.subCategories || []).map(sub => {
+              {(currentCategoryObj.subCategories || []).map((sub, index) => {
                 const count = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === sub.id).length;
                 const isSelected = activeSubCategory === sub.id;
+                const isDragging = draggedSubIndex === index;
+                const isOver = dragOverSubIndex === index;
+
                 return (
                   <button
                     key={sub.id}
                     type="button"
-                    onClick={() => setActiveSubCategory(sub.id)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                      isSelected
+                    draggable
+                    onDragStart={(e) => {
+                      isDraggingSubRef.current = true;
+                      setDraggedSubIndex(index);
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', String(index));
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      if (dragOverSubIndex !== index) {
+                        setDragOverSubIndex(index);
+                      }
+                    }}
+                    onDragLeave={() => {
+                      if (dragOverSubIndex === index) {
+                        setDragOverSubIndex(null);
+                      }
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedSubIndex !== null && draggedSubIndex !== index) {
+                        handleReorderSubCategory(draggedSubIndex, index);
+                      }
+                      setDraggedSubIndex(null);
+                      setDragOverSubIndex(null);
+                      setTimeout(() => {
+                        isDraggingSubRef.current = false;
+                      }, 120);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedSubIndex(null);
+                      setDragOverSubIndex(null);
+                      setTimeout(() => {
+                        isDraggingSubRef.current = false;
+                      }, 120);
+                    }}
+                    onClick={() => {
+                      if (isDraggingSubRef.current) return;
+                      setActiveSubCategory(sub.id);
+                    }}
+                    className={`group px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-grab active:cursor-grabbing select-none ${
+                      isDragging
+                        ? 'opacity-40 scale-95 border-2 border-dashed border-amber-500 bg-amber-50/50'
+                        : isOver
+                        ? 'ring-2 ring-amber-500 ring-offset-1 border-amber-500 bg-amber-50 text-amber-900 scale-105'
+                        : isSelected
                         ? 'bg-stone-900 text-white shadow-xs'
                         : 'bg-stone-100/90 text-stone-600 hover:bg-stone-200/80 hover:text-stone-900 border border-stone-200/60'
                     }`}
+                    title="Klik untuk memilih. Tahan & geser untuk mengubah urutan."
                   >
+                    <GripVertical
+                      size={11}
+                      className={`shrink-0 transition-opacity ${
+                        isSelected
+                          ? 'text-white/40 group-hover:text-white/80'
+                          : 'text-stone-400 group-hover:text-stone-700'
+                      }`}
+                    />
                     <span>{sub.label}</span>
                     <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
                       isSelected ? 'bg-white/20 text-white' : 'bg-white text-stone-700 border border-stone-200/60'
@@ -2055,7 +2160,7 @@ export function MoodboardView({
                     </span>
 
                     <div className="divide-y divide-stone-100 bg-[#FAF7F2] rounded-2xl border border-[#EADBCE]/80 overflow-hidden">
-                      {(currentCategoryObj.subCategories || []).map(sub => {
+                      {(currentCategoryObj.subCategories || []).map((sub, index, allSubs) => {
                         const count = safeItems.filter(i => i.categoryId === currentCategoryObj.id && i.subCategoryId === sub.id).length;
                         const totalCount = safeItems.filter(i => i.subCategoryId === sub.id).length;
                         const isConfirmingDelete = subCatToDelete?.id === sub.id;
@@ -2130,6 +2235,36 @@ export function MoodboardView({
                             </div>
 
                             <div className="flex items-center gap-1 shrink-0">
+                              {/* Reorder Buttons */}
+                              <div className="flex items-center bg-stone-100/80 rounded-lg p-0.5 mr-1 border border-stone-200/60">
+                                <button
+                                  type="button"
+                                  disabled={index === 0}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    handleReorderSubCategory(index, index - 1);
+                                  }}
+                                  className="p-1 rounded text-stone-500 hover:text-stone-900 hover:bg-white disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-stone-400 transition cursor-pointer"
+                                  title="Geser ke Atas"
+                                >
+                                  <ChevronUp size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={index === allSubs.length - 1}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    handleReorderSubCategory(index, index + 1);
+                                  }}
+                                  className="p-1 rounded text-stone-500 hover:text-stone-900 hover:bg-white disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-stone-400 transition cursor-pointer"
+                                  title="Geser ke Bawah"
+                                >
+                                  <ChevronDown size={13} />
+                                </button>
+                              </div>
+
                               <button
                                 type="button"
                                 onClick={(e) => {
