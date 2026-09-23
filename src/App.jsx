@@ -196,6 +196,7 @@ export default function App() {
   // Other sheets data
   const [photoList, setPhotoList] = useState(() => loadStorage(PHOTO_STORAGE, INITIAL_PHOTO_LIST));
   const [rundownList, setRundownList] = useState(() => loadStorage(RUNDOWN_STORAGE, INITIAL_RUNDOWN));
+  const [logisticsList, setLogisticsList] = useState(() => loadStorage(LOGISTICS_STORAGE, INITIAL_LOGISTICS_LIST));
   const [moodboardItems, setMoodboardItems] = useState(() => loadAndMigrateMoodboardItems());
   const [moodboardCategories, setMoodboardCategories] = useState(() => loadAndMigrateMoodboardCategories());
 
