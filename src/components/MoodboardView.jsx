@@ -277,10 +277,6 @@ export function MoodboardView({
   // Save Item (Add or Edit)
   const handleSaveItem = (e) => {
     e.preventDefault();
-    if (!formData.title.trim()) {
-      alert('Harap isi judul inspirasi.');
-      return;
-    }
     if (!formData.imageUrl.trim()) {
       alert('Harap upload gambar atau masukkan URL gambar.');
       return;
@@ -332,7 +328,8 @@ export function MoodboardView({
 
   // Delete Item
   const handleDeleteItem = (id, title) => {
-    if (window.confirm(`Hapus inspirasi "${title}" dari moodboard?`)) {
+    const itemLabel = title || 'foto ini';
+    if (window.confirm(`Hapus inspirasi "${itemLabel}" dari moodboard?`)) {
       const updated = safeItems.filter(i => i.id !== id);
       onChangeItems?.(updated);
       if (detailItem?.id === id) setDetailItem(null);
@@ -1141,20 +1138,6 @@ export function MoodboardView({
                     </div>
                   </div>
 
-                  {/* Title */}
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">
-                      Judul / Konsep <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Contoh: Gaun Pengantin Minimalis A-Line & Veil"
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      required
-                      className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs text-stone-800 focus:outline-none focus:border-stone-800"
-                    />
-                  </div>
 
                   {/* Image Picker: File Upload or External URL */}
                   <div>
@@ -1331,7 +1314,7 @@ export function MoodboardView({
                     {/* Title */}
                     <div>
                       <h2 className="text-lg sm:text-xl font-extrabold text-stone-900 tracking-tight leading-snug">
-                        {detailItem.title}
+                        {detailItem.title || getSubCategoryLabel(detailItem.categoryId, detailItem.subCategoryId) || 'Inspirasi Moodboard'}
                       </h2>
                       {detailItem.createdAt && (
                         <p className="text-[10px] text-stone-400 mt-1">
@@ -1849,19 +1832,25 @@ function PhotoCard({ item, categoryObj, subCatLabel, onViewDetail, onEdit, onDel
       {/* Card Info */}
       <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between">
         <div>
-          <h4 
-            onClick={() => onViewDetail(item)}
-            className="text-xs sm:text-sm font-extrabold text-stone-900 group-hover:text-amber-800 transition line-clamp-1 cursor-pointer"
-            title={item.title}
-          >
-            {item.title}
-          </h4>
+          {item.title ? (
+            <h4 
+              onClick={() => onViewDetail(item)}
+              className="text-xs sm:text-sm font-extrabold text-stone-900 group-hover:text-amber-800 transition line-clamp-1 cursor-pointer"
+              title={item.title}
+            >
+              {item.title}
+            </h4>
+          ) : null}
 
-          {item.notes && (
-            <p className="text-[11px] text-stone-500 mt-1 line-clamp-2 leading-relaxed">
+          {item.notes ? (
+            <p className="text-[11px] text-stone-600 line-clamp-2 leading-relaxed">
               {item.notes}
             </p>
-          )}
+          ) : !item.title ? (
+            <p className="text-[11px] text-stone-400 italic">
+              Klik untuk lihat detail foto
+            </p>
+          ) : null}
         </div>
 
         {/* Card Footer Actions */}
