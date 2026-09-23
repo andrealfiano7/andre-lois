@@ -345,7 +345,7 @@ export default function App() {
     const backupData = {
       version: '4.0',
       timestamp: new Date().toISOString(),
-      branding: 'Andre & Lois Wedding Operations',
+      branding: 'Andre & Lois Wedding App',
       targetDate: countdown.targetDate,
       tasks,
       photoList,
@@ -455,17 +455,17 @@ export default function App() {
           <motion.div 
             whileHover={{ scale: 1.06, rotate: 2 }} 
             whileTap={{ scale: 0.94 }}
-            className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shadow-xs shrink-0 cursor-pointer border border-amber-200/60"
+            className="w-12 h-12 rounded-2xl overflow-hidden flex items-center justify-center shadow-xs shrink-0 cursor-pointer border border-amber-200/60"
           >
             <img src={logoImg} alt="Andre & Lois Monogram" className="w-full h-full object-contain block rounded-2xl" />
           </motion.div>
           <div className="min-w-0">
-            <h1 className="text-base font-extrabold text-stone-900 tracking-tight truncate">
+            <h1 className="text-lg xl:text-xl font-extrabold text-stone-900 tracking-tight truncate leading-tight">
               Andre &amp; Lois
             </h1>
             <div className="flex items-center gap-1.5 flex-wrap">
-              <p className="text-[11px] text-stone-500 truncate font-medium">
-                Wedding Operations
+              <p className="text-xs text-stone-500 truncate font-medium">
+                Wedding App
               </p>
               <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-full leading-none" title="Tersambung ke database Neon PostgreSQL">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -573,14 +573,16 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-3.5 sm:px-6">
             <div className="flex items-center justify-between h-14 gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center shadow-xs shrink-0 cursor-pointer">
+                <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shadow-xs shrink-0 cursor-pointer">
                   <img src={logoImg} alt="Andre & Lois Monogram" className="w-full h-full object-contain block rounded-xl" />
                 </div>
                 <div className="min-w-0">
-                  <h1 className="text-sm font-extrabold text-stone-900 tracking-tight truncate">
+                  <h1 className="text-base font-extrabold text-stone-900 tracking-tight truncate leading-tight">
                     Andre &amp; Lois
                   </h1>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-stone-500 font-medium">Wedding App</span>
+                    <span className="w-1 h-1 rounded-full bg-stone-300" />
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-[9px] font-bold text-emerald-700">Neon DB</span>
                   </div>
